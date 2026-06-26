@@ -3,14 +3,39 @@ import { CSSProperties, MouseEventHandler } from "react";
 import { handler } from "../util/vscode";
 
 export function VSCodeLogoSVG() {
-    return <svg height="24" width="24" viewBox="-11.9 -2 1003.9 995.6" xmlns="http://www.w3.org/2000/svg">
-        <path d="m12.1 353.9s-24-17.3 4.8-40.4l67.1-60s19.2-20.2 39.5-2.6l619.2 468.8v224.8s-.3 35.3-45.6 31.4z"
-            fill="#2489ca" />
-        <path d="m171.7 498.8-159.6 145.1s-16.4 12.2 0 34l74.1 67.4s17.6 18.9 43.6-2.6l169.2-128.3z" fill="#1070b3" />
-        <path d="m451.9 500 292.7-223.5-1.9-223.6s-12.5-48.8-54.2-23.4l-389.5 354.5z" fill="#0877b9" />
-        <path
-            d="m697.1 976.2c17 17.4 37.6 11.7 37.6 11.7l228.1-112.4c29.2-19.9 25.1-44.6 25.1-44.6v-671.2c0-29.5-30.2-39.7-30.2-39.7l-197.7-95.3c-43.2-26.7-71.5 4.8-71.5 4.8s36.4-26.2 54.2 23.4v887.5c0 6.1-1.3 12.1-3.9 17.5-5.2 10.5-16.5 20.3-43.6 16.2z"
-            fill="#3c99d4" />
+    return <svg height="24" width="24" viewBox="220 280 600 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <clipPath id="overlap-clip">
+                <path d="M 320 300 Q 240 300 240 380 L 240 600 Q 240 680 320 680 L 320 740 L 380 680 L 620 680 Q 700 680 700 600 L 700 380 Q 700 300 620 300 Z" />
+            </clipPath>
+            <mask id="cutout-mask">
+                <rect x="0" y="0" width="1024" height="1024" fill="white" />
+                <circle cx="630" cy="560" r="170" fill="black" />
+                <circle cx="630" cy="560" r="140" fill="white" />
+            </mask>
+        </defs>
+        <g id="code-window" mask="url(#cutout-mask)">
+            <path d="M 320 300 Q 240 300 240 380 L 240 600 Q 240 680 320 680 L 320 740 L 380 680 L 620 680 Q 700 680 700 600 L 700 380 Q 700 300 620 300 Z"
+                fill="#e8f4ff" stroke="#0080FF" strokeWidth="20" strokeLinecap="round" strokeLinejoin="round" />
+            <line x1="280" y1="370" x2="660" y2="370" stroke="#D0E8FF" strokeWidth="10" strokeLinecap="round" />
+            <circle cx="295" cy="335" r="11" fill="#A855F7" />
+            <circle cx="333" cy="335" r="11" fill="#FB923C" />
+            <circle cx="371" cy="335" r="11" fill="#22D3EE" />
+            <g id="code-tag">
+                <path d="M 330 420 L 295 450 L 330 480" stroke="#0080FF" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <line x1="360" y1="490" x2="390" y2="410" stroke="#0080FF" strokeWidth="16" strokeLinecap="round" />
+                <path d="M 410 420 L 445 450 L 410 480" stroke="#0080FF" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </g>
+            <line x1="290" y1="535" x2="430" y2="535" stroke="#B8D4F1" strokeWidth="14" strokeLinecap="round" />
+            <line x1="290" y1="570" x2="375" y2="570" stroke="#B8D4F1" strokeWidth="14" strokeLinecap="round" />
+            <line x1="290" y1="605" x2="410" y2="605" stroke="#B8D4F1" strokeWidth="14" strokeLinecap="round" />
+        </g>
+        <g id="ai-face">
+            <circle cx="630" cy="560" r="155" fill="#e8f4ff" />
+            <circle cx="630" cy="560" r="155" fill="none" stroke="#0080FF" strokeWidth="20" />
+            <ellipse cx="578.33" cy="525.51" rx="21.04" ry="33.83" fill="#2979ff" />
+            <ellipse cx="681.67" cy="525.51" rx="21.04" ry="33.83" fill="#2979ff" />
+        </g>
     </svg>
 }
 

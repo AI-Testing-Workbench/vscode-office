@@ -1,6 +1,5 @@
 import {getEventName} from "../util/compatibility";
 import {MenuItem} from "./MenuItem";
-import {SponsorPanel} from "./SponsorPanel";
 // @ts-ignore
 import sponsorIconUrl from "../../assets/sponsor-icon.png";
 
@@ -13,27 +12,9 @@ export class Help extends MenuItem {
         btn.innerHTML = `<img src="${sponsorIconUrl}" alt="About" class="vditor-sponsor-toolbar-icon" draggable="false"/>`;
 
         const opts = vditor.options;
-        const lang = opts.lang || "en_US";
-        let panel: SponsorPanel | null = null;
-
         btn.addEventListener(getEventName(), (event) => {
             event.preventDefault();
-            if (!panel) {
-                panel = new SponsorPanel(
-                    this.element.parentElement,
-                    lang,
-                    opts.onSponsorLogoClick,
-                    opts.onSponsorSiteClick,
-                );
-                document.addEventListener("mousedown", (e) => {
-                    if (panel.isVisible() && !panel.element.contains(e.target as Node) && !btn.contains(e.target as Node)) {
-                        panel.hide();
-                    }
-                });
-            }
-            const willShow = !panel.isVisible();
-            panel.toggle(btn);
-            if (willShow && opts.onAboutOpen) {
+            if (opts.onAboutOpen) {
                 opts.onAboutOpen();
             }
         });
