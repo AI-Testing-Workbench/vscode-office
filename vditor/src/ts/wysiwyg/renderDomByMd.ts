@@ -1,4 +1,4 @@
-import {isCmCodeBlock, renderCodeBlocks, setupLazyCodeMirrorObserver, syncMathBlocksDisplayMode} from "../codeBlock/codeMirrorManager";
+import {isSpecialBlock, renderCodeBlocks, setupLazyCodeMirrorObserver, syncMathBlocksDisplayMode} from "../codeBlock/codeMirrorManager";
 import {log} from "../util/log";
 import {processCodeRender} from "../util/processCode";
 import {renderToc} from "../util/toc";
@@ -32,10 +32,14 @@ export const renderDomByMd = (vditor: IVditor, md: string, options = {
 
     editorElement.querySelectorAll(".vditor-wysiwyg__preview[data-render='2']").forEach((item: HTMLElement) => {
         const parent = item.parentElement as HTMLElement;
-        if (!isNearViewport(parent)) {
+        if (!parent) {
             return;
         }
-        if (isCmCodeBlock(parent)) {
+        // 普通代码块走懒加载 placeholder；数学 / mermaid / plantuml 始终渲染预览
+        if (parent.getAttribute("data-type") === "code-block" && !isSpecialBlock(parent)) {
+            if (!isNearViewport(parent)) {
+                return;
+            }
             return;
         }
         processCodeRender(item, vditor);
@@ -43,10 +47,6 @@ export const renderDomByMd = (vditor: IVditor, md: string, options = {
     syncMathBlocksDisplayMode(editorElement, vditor);
     editorElement.querySelectorAll(".vditor-wysiwyg__block[data-type='math-block'] .vditor-wysiwyg__preview").forEach(
         (preview: HTMLElement) => {
-            const block = preview.closest("[data-type='math-block']") as HTMLElement;
-            if (block && !isNearViewport(block)) {
-                return;
-            }
             if (preview.getAttribute("data-render") !== "1") {
                 processCodeRender(preview, vditor);
             }
