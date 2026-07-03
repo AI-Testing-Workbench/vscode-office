@@ -240,6 +240,19 @@ export class Settings extends MenuItem {
                 return;
             }
 
+            // Toggle switch
+            const toggleTrigger = event.target.closest("[data-toggle-trigger]") as HTMLElement | null;
+            if (toggleTrigger) {
+                const key = toggleTrigger.getAttribute("data-toggle-key") || "";
+                const next = !toggleTrigger.classList.contains(`${SETTINGS_PANEL_CLASS}__toggle--on`);
+                toggleTrigger.classList.toggle(`${SETTINGS_PANEL_CLASS}__toggle--on`, next);
+                toggleTrigger.setAttribute("aria-checked", String(next));
+                setGlobalLocalStorageSetting(key, next ? true : undefined);
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+
             // Dropdown trigger
             const dropdownTrigger = event.target.closest(`[data-dropdown-trigger]`) as HTMLElement | null;
             if (dropdownTrigger) {
