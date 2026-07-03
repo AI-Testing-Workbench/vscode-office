@@ -11,6 +11,7 @@ import { Global, i18n } from '@/common/global';
 import { TelemetryService } from '@/service/telemetryService';
 import { openWikiLink } from '@/service/markdown/wikilink';
 import { streamCustomAI } from '@/service/ai/customAIClient';
+import { buildAIOutputLanguageInstruction } from '@/service/ai/aiOutputLanguage';
 import {
     broadcastToMarkdownWebviews,
     consumePendingBlockScroll,
@@ -387,6 +388,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         if (options?.goal) {
             parts.push(`Focus on: ${options.goal}`);
         }
+        parts.push(buildAIOutputLanguageInstruction(options?.outputLanguage, options?.uiLanguage));
         parts.push('Return ONLY the polished Markdown with no extra commentary.\n\n' + markdown);
         return parts.join('\n');
     }

@@ -457,6 +457,10 @@ interface IAIPolishOptions {
     goal?: string;
     prompt?: string;
     engine?: "vscode" | "custom";
+    /** auto = follow UI language */
+    outputLanguage?: "auto" | "en_US" | "zh_CN" | "zh_TW" | "ja_JP" | "ko_KR" | "ru_RU";
+    /** Current editor UI language (vditor.options.lang) */
+    uiLanguage?: string;
     vscodeModelId?: string;
     customUrl?: string;
     customKey?: string;

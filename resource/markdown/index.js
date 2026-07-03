@@ -95,12 +95,6 @@ handler.on("open", async (md) => {
     ai: {
       onPolish(markdown, apply, options) {
         handler.emit('aiPolish', { markdown, options })
-        handler.on('aiPolishChunk', (chunk) => {
-          editor.streamAIChunk(chunk)
-        })
-        handler.on('aiPolishEnd', () => {
-          editor.endAIStream()
-        })
       },
       onCancelPolish() {
         handler.emit('aiPolishCancel')
@@ -163,6 +157,12 @@ handler.on("open", async (md) => {
       })
       handler.on("vscodeModels", (models) => {
         editor.setVSCodeModels(models)
+      })
+      handler.on('aiPolishChunk', (chunk) => {
+        editor.streamAIChunk(chunk)
+      })
+      handler.on('aiPolishEnd', () => {
+        editor.endAIStream()
       })
       editor.restoreDocumentSession(true)
       if (pendingFragment) {
