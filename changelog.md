@@ -1,5 +1,17 @@
 # Change log
 
+# 4.1.2 2026-7-3
+
+Markdown Editor:
+
+- Improve AI review panel.
+- Add quick action presets for AI Polish.
+- Add output language selection for AI Polish.
+
+Fix:
+
+- Fix math formulas and diagrams (Mermaid, PlantUML) not rendering correctly after code block lazy-loading optimization.
+
 # 4.1.1 2026-7-3
 
 Markdown Editor:
