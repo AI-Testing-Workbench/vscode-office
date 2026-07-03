@@ -1,10 +1,16 @@
 import {
-    AI_ENGINE_KEY, AI_SELECTED_MODEL_KEY, AI_SELECTED_PROMPT_KEY,
+    AI_ENGINE_KEY, AI_SELECTED_MODEL_KEY, AI_SELECTED_PROMPT_KEY, AI_OUTPUT_LANGUAGE_KEY,
     getAIPrompts, setAIPrompts,
     getAIModels, setAIModels,
     AIPrompt, AIModel,
     setAiPreference,
 } from "../util/globalLocalStorageSettings";
+import {
+    AIOutputLanguage,
+    AI_OUTPUT_LANGUAGE_OPTIONS,
+    getAIOutputLanguageOptionLabel,
+    normalizeVditorLang,
+} from "../ai/aiOutputLanguage";
 import { AI_FORMAT_OPTIONS, nameFromUrl, getProviderIcon } from "./settingsPanel";
 import { accessLocalStorage } from "../util/compatibility";
 import { telemetry } from "../util/telemetry";
@@ -12,12 +18,47 @@ import { telemetry } from "../util/telemetry";
 const ls = {
     get: (key: string) => accessLocalStorage() ? (localStorage.getItem(key) ?? "") : "",
     set: (key: string, val: string) => {
-        if (key === AI_ENGINE_KEY || key === AI_SELECTED_MODEL_KEY || key === AI_SELECTED_PROMPT_KEY) {
+        if (key === AI_ENGINE_KEY || key === AI_SELECTED_MODEL_KEY || key === AI_SELECTED_PROMPT_KEY
+            || key === AI_OUTPUT_LANGUAGE_KEY) {
             setAiPreference(key, val || undefined);
             return;
         }
         if (accessLocalStorage()) localStorage.setItem(key, val);
     },
+};
+
+const PRESET_KEYS = ["polish", "shorten", "expand", "grammar", "clarity", "translate"] as const;
+type PresetKey = typeof PRESET_KEYS[number];
+
+const PRESET_I18N: Record<PresetKey, keyof typeof window.VditorI18n> = {
+    polish: "aiPresetPolish",
+    shorten: "aiPresetShorten",
+    expand: "aiPresetExpand",
+    grammar: "aiPresetGrammar",
+    clarity: "aiPresetClarity",
+    translate: "aiPresetTranslate",
+};
+
+const getPresetGoals = (): Record<PresetKey, string> => ({
+    polish: "Polish and improve the writing while preserving meaning",
+    shorten: "Make the text more concise without losing key information",
+    expand: "Expand the text with more detail and depth",
+    grammar: "Fix grammar, spelling, and punctuation errors",
+    clarity: "Improve clarity and readability",
+    translate: "Translate the text to the target output language while preserving meaning and Markdown structure",
+});
+
+const buildPresetChipsHTML = (): string => {
+    const i = window.VditorI18n;
+    let html = `<div class="vditor-ai-dialog__field">
+          <label class="vditor-ai-dialog__label">${i.aiQuickActions ?? "Quick actions"}</label>
+          <div class="vditor-ai-dialog__presets">`;
+    for (const key of PRESET_KEYS) {
+        const label = i[PRESET_I18N[key]] ?? key;
+        html += `<button type="button" class="vditor-ai-dialog__preset" data-preset="${key}">${label}</button>`;
+    }
+    html += `</div></div>`;
+    return html;
 };
 
 const buildHTML = (): string => {
@@ -35,6 +76,7 @@ const buildHTML = (): string => {
         </button>
       </div>
       <div class="vditor-ai-dialog__body">
+        ${buildPresetChipsHTML()}
         <div class="vditor-ai-dialog__field">
           <label class="vditor-ai-dialog__label" for="vditor-ai-goal">${i.aiUpdateGoal}</label>
           <textarea class="vditor-ai-dialog__textarea" id="vditor-ai-goal" rows="2"
@@ -53,6 +95,16 @@ const buildHTML = (): string => {
             <button type="button" class="vditor-ai-dialog__add-btn" data-goto="add-prompt" title="${i.aiAddPrompt}">
               <span class="codicon codicon-add"></span>
             </button>
+          </div>
+        </div>
+        <div class="vditor-ai-dialog__field">
+          <label class="vditor-ai-dialog__label">${i.aiOutputLanguage ?? "Output language"}</label>
+          <div class="vditor-ai-dialog__picker" data-picker="output-language">
+            <button type="button" class="vditor-ai-dialog__picker-trigger">
+              <span class="vditor-ai-dialog__picker-label">${i.aiOutputLangAuto ?? "Follow UI language"}</span>
+              <span class="codicon codicon-chevron-down vditor-ai-dialog__picker-chevron"></span>
+            </button>
+            <div class="vditor-ai-dialog__picker-list" hidden></div>
           </div>
         </div>
         <div class="vditor-ai-dialog__field">
@@ -221,6 +273,11 @@ export class AIDialog {
     private vscodeFields: HTMLElement;
     private vscodeModels: Array<{ id: string; name: string; family: string; vendor: string }> = [];
     private vscodeModelValue: string = "";
+    private outputLanguageValue: AIOutputLanguage = "auto";
+
+    private get uiLanguage() {
+        return normalizeVditorLang(this.vditor.options.lang);
+    }
 
     constructor(
         vditor: IVditor,
@@ -283,6 +340,9 @@ export class AIDialog {
             `<button type="button" class="vditor-ai-dialog__picker-option${o.value === "auto" ? " vditor-ai-dialog__picker-option--selected" : ""}" data-value="${o.value}">${i[o.i18nKey]}</button>`
         ).join("");
 
+        this.populateOutputLanguagePicker();
+        this.refreshOutputLanguage();
+
         this.bindEvents();
     }
 
@@ -300,9 +360,13 @@ export class AIDialog {
         this.capturedMarkdown = capturedMarkdown;
         this.capturedIsSelection = capturedIsSelection;
         this.goalEl.value = "";
+        this.overlay.querySelectorAll<HTMLElement>(".vditor-ai-dialog__preset").forEach((btn) => {
+            btn.classList.remove("vditor-ai-dialog__preset--active");
+        });
         this.closeActivePicker();
         this.refreshPrompts();
         this.refreshModels();
+        this.refreshOutputLanguage();
         this.refreshEngine();
         this.showPage("main");
         this.overlay.hidden = false;
@@ -437,15 +501,39 @@ export class AIDialog {
         this.modelNameField.hidden = false;
     }
 
+    private populateOutputLanguagePicker() {
+        const picker = this.pickers.get("output-language");
+        if (!picker) {
+            return;
+        }
+        const i = window.VditorI18n;
+        picker.optionsEl.innerHTML = AI_OUTPUT_LANGUAGE_OPTIONS.map((o) =>
+            `<button type="button" class="vditor-ai-dialog__picker-option" data-value="${o.value}">${i[o.i18nKey] ?? o.value}</button>`,
+        ).join("");
+    }
+
+    private refreshOutputLanguage() {
+        const picker = this.pickers.get("output-language");
+        if (!picker) {
+            return;
+        }
+        const saved = ls.get(AI_OUTPUT_LANGUAGE_KEY);
+        this.outputLanguageValue = (saved || "auto") as AIOutputLanguage;
+        picker.label.textContent = getAIOutputLanguageOptionLabel(this.outputLanguageValue, this.uiLanguage);
+        this.updatePickerSelection(picker.optionsEl, this.outputLanguageValue);
+    }
+
     private refreshVSCodeModelPicker() {
         const picker = this.pickers.get("vscode-model");
-        if (!picker) return;
+        if (!picker) {
+            return;
+        }
         const i = window.VditorI18n;
         const autoLabel = i.aiVscodeModelAuto ?? "Auto";
         picker.optionsEl.innerHTML =
             `<button type="button" class="vditor-ai-dialog__picker-option" data-value="">${autoLabel}</button>` +
             this.vscodeModels.map(m =>
-                `<button type="button" class="vditor-ai-dialog__picker-option" data-value="${m.id}">${m.name}</button>`
+                `<button type="button" class="vditor-ai-dialog__picker-option" data-value="${m.id}">${m.name}</button>`,
             ).join("");
         const found = this.vscodeModels.find(m => m.id === this.vscodeModelValue);
         picker.label.textContent = found ? found.name : autoLabel;
@@ -507,6 +595,12 @@ export class AIDialog {
             if (target.closest("[data-save='prompt']")) { this.savePrompt(); return; }
             if (target.closest("[data-save='model']")) { this.saveModel(); return; }
             if (target.closest("[data-ai-submit]")) { this.submit(); return; }
+
+            const presetBtn = target.closest<HTMLElement>(".vditor-ai-dialog__preset");
+            if (presetBtn?.dataset.preset) {
+                this.applyPreset(presetBtn.dataset.preset as PresetKey, presetBtn);
+                return;
+            }
         });
 
         // Handle picker option clicks (lists are in body, not inside overlay)
@@ -540,6 +634,10 @@ export class AIDialog {
                     this.formatValue = value;
                     const opt = AI_FORMAT_OPTIONS.find(o => o.value === value);
                     picker.label.textContent = opt ? window.VditorI18n[opt.i18nKey] : value;
+                } else if (name === "output-language") {
+                    this.outputLanguageValue = value as AIOutputLanguage;
+                    ls.set(AI_OUTPUT_LANGUAGE_KEY, value);
+                    picker.label.textContent = getAIOutputLanguageOptionLabel(this.outputLanguageValue, this.uiLanguage);
                 }
                 this.updatePickerSelection(picker.list, value);
                 this.closeActivePicker();
@@ -607,10 +705,29 @@ export class AIDialog {
         this.showPage("main");
     }
 
+    private applyPreset(key: PresetKey, activeBtn: HTMLElement) {
+        const goals = getPresetGoals();
+        const goal = goals[key];
+        if (!goal) {
+            return;
+        }
+        this.goalEl.value = goal;
+        this.overlay.querySelectorAll<HTMLElement>(".vditor-ai-dialog__preset").forEach((btn) => {
+            btn.classList.toggle("vditor-ai-dialog__preset--active", btn === activeBtn);
+        });
+        this.goalEl.focus();
+    }
+
     private submit() {
         const goal = this.goalEl.value.trim();
         const promptText = this.promptValue ? (getAIPrompts().find(p => p.id === this.promptValue)?.content || "") : "";
-        const options: IAIPolishOptions = { goal, prompt: promptText, engine: this.currentEngine as "vscode" | "custom" };
+        const options: IAIPolishOptions = {
+            goal,
+            prompt: promptText,
+            engine: this.currentEngine as "vscode" | "custom",
+            outputLanguage: this.outputLanguageValue,
+            uiLanguage: this.uiLanguage,
+        };
         if (this.currentEngine === "vscode" && this.vscodeModelValue) {
             options.vscodeModelId = this.vscodeModelValue;
         }

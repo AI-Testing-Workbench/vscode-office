@@ -22,7 +22,7 @@ import { disableToolbar, hidePanel } from "./ts/toolbar/setToolbar";
 import { enableToolbar } from "./ts/toolbar/setToolbar";
 import { AIDialog } from "./ts/ui/aiDialog";
 import { telemetry } from "./ts/util/telemetry";
-import { AIResultPanel } from "./ts/ui/aiResultPanel";
+import { AIReviewPanel } from "./ts/ui/aiReviewPanel";
 import { initUI } from "./ts/ui/initUI";
 import { setCodeTheme } from "./ts/ui/setCodeTheme";
 import { setEditorTheme as applyEditorTheme } from "./ts/ui/setEditorTheme";
@@ -84,8 +84,7 @@ class Vditor {
     public vditor: IVditor;
     private aiDialog: AIDialog | null = null;
     private aiSelectionRange: Range | null = null;
-    private aiSelectionRect: DOMRect | null = null;
-    private aiResultPanel: AIResultPanel = new AIResultPanel();
+    private aiReviewPanel: AIReviewPanel = new AIReviewPanel();
     private aiReplaceAll = false;
 
     /**
@@ -440,10 +439,7 @@ class Vditor {
         const sel = this.getSelection();
         this.aiSelectionRange = captureEditorSelection(this.vditor);
         if (this.aiSelectionRange) {
-            this.aiSelectionRect = this.aiSelectionRange.getBoundingClientRect();
             showFrozenSelection(this.vditor, this.aiSelectionRange);
-        } else {
-            this.aiSelectionRect = null;
         }
         this.aiDialog.open(sel || this.getValue(), !!sel);
     }
@@ -456,35 +452,51 @@ class Vditor {
         this.aiReplaceAll = replaceAll;
         const markdown = capturedMarkdown ?? (this.getSelection() || this.getValue());
         this.disabled();
-        const discardOrCancel = (cancel = false) => {
+        if (this.aiSelectionRange) {
+            showFrozenSelection(this.vditor, this.aiSelectionRange);
+        }
+        const finishReview = (cancel = false) => {
+            const range = this.aiSelectionRange;
+            const hadSelection = !!range && !this.aiReplaceAll;
             this.enable();
             hideFrozenSelection(this.vditor);
             this.aiSelectionRange = null;
-            this.aiSelectionRect = null;
-            if (cancel) this.vditor.options.ai?.onCancelPolish?.();
+            this.aiReviewPanel.close();
+            if (hadSelection) {
+                restoreEditorSelection(this.vditor, range);
+            } else {
+                this.focus();
+            }
+            if (cancel) {
+                this.vditor.options.ai?.onCancelPolish?.();
+            }
         };
-        this.aiResultPanel.open(
+        this.aiReviewPanel.open(
             markdown,
-            this.aiSelectionRect,
-            (result) => this.applyAIResult(result, this.aiReplaceAll),
-            () => discardOrCancel(false),
-            () => discardOrCancel(true),
+            {
+                onAccept: (result) => {
+                    finishReview(false);
+                    this.applyAIResult(result, this.aiReplaceAll);
+                },
+                onReject: () => finishReview(false),
+                onStop: () => finishReview(true),
+            },
         );
         telemetry(this.vditor, "markdown.ai.polish", {
             engine: options?.engine ?? "vscode",
             isSelection: !replaceAll,
         });
-        onPolish(markdown, (_result: string) => { /* unused — streaming via streamAIChunk/endAIStream */ }, options);
+        onPolish(markdown, (_result: string) => { /* streaming via streamAIChunk/endAIStream */ }, options);
     }
 
-    /** 流式接收 AI chunk，实时渲染到结果面板 */
+    /** 流式接收 AI chunk，实时更新 diff 审阅面板 */
     public streamAIChunk(chunk: string) {
-        this.aiResultPanel.stream(chunk);
+        this.aiReviewPanel.stream(chunk);
     }
 
-    /** AI 流结束，启用确认按钮 */
+    /** AI 流结束，启用 Accept 按钮 */
     public endAIStream() {
-        this.aiResultPanel.endStream();
+        this.aiReviewPanel.endStream();
     }
 
     /** 接收 AI 润色结果：退出 loading 状态，将 markdown 并入正文 */
@@ -493,12 +505,10 @@ class Vditor {
         hideFrozenSelection(this.vditor);
         if (replaceAll) {
             this.aiSelectionRange = null;
-            this.aiSelectionRect = null;
             this.setValue(markdown);
         } else {
             restoreEditorSelection(this.vditor, this.aiSelectionRange);
             this.aiSelectionRange = null;
-            this.aiSelectionRect = null;
             document.execCommand("delete", false);
             const html = this.vditor.lute.Md2HTML(markdown);
             document.execCommand("insertHTML", false, html);
@@ -572,8 +582,8 @@ class Vditor {
                 this.aiDialog = new AIDialog(this.vditor, (markdown, isSelection, options) => {
                     this.triggerAIPolish(options, markdown, isSelection);
                 }, (reason) => {
-                    hideFrozenSelection(this.vditor);
                     if (reason !== "submit") {
+                        hideFrozenSelection(this.vditor);
                         this.aiSelectionRange = null;
                     }
                 });

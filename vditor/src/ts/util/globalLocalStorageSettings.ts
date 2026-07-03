@@ -164,11 +164,13 @@ export const AI_CUSTOM_MODEL_KEY = "aiCustomModel";
 export const AI_CUSTOM_FORMAT_KEY = "aiCustomApiFormat";
 export const AI_SELECTED_MODEL_KEY = "aiSelectedModel";
 export const AI_SELECTED_PROMPT_KEY = "aiSelectedPrompt";
+export const AI_OUTPUT_LANGUAGE_KEY = "aiOutputLanguage";
 
 const AI_PREFERENCE_KEYS = [
     AI_ENGINE_KEY,
     AI_SELECTED_MODEL_KEY,
     AI_SELECTED_PROMPT_KEY,
+    AI_OUTPUT_LANGUAGE_KEY,
 ] as const;
 
 export type ViewerSettingsExport = {

@@ -140,6 +140,37 @@
     max-height: calc(100vh - 180px);
   }
 
+  &__presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__preset {
+    padding: 4px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--editor-foreground, #ccc) 5%, transparent);
+    color: var(--textarea-text-color);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+
+    &:hover {
+      border-color: var(--link-color, #4a78c8);
+      color: var(--link-color, #4a78c8);
+      background: color-mix(in srgb, var(--link-color, #4a78c8) 10%, transparent);
+    }
+
+    &--active {
+      border-color: var(--link-color, #4a78c8);
+      color: var(--link-color, #4a78c8);
+      background: color-mix(in srgb, var(--link-color, #4a78c8) 14%, transparent);
+      font-weight: 600;
+    }
+  }
+
   &__field {
     display: flex;
     flex-direction: column;
