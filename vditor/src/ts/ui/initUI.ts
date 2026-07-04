@@ -79,7 +79,9 @@ export const initUI = (vditor: IVditor) => {
   bindHistoryInputBufferClick(vditor);
 
   const initValue = afterRender(vditor);
-  setEditMode(vditor, vditor.options.mode, initValue);
+  let mode = vditor.options.mode;
+  if (!["wysiwyg", "ir"].includes(mode)) mode = "wysiwyg";
+  setEditMode(vditor, mode, initValue);
   initSaveToolbarState(vditor, initValue);
 
   document.execCommand("DefaultParagraphSeparator", false, "p");
