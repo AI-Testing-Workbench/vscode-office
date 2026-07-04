@@ -130,6 +130,36 @@ function applyFontStyleAttr(cstyle, property, value) {
   cstyle.font = font;
 }
 
+function getCellSortText(rows, ri, ci) {
+  const cell = rows.getCell(ri, ci);
+  return cell && cell.text != null ? `${cell.text}` : '';
+}
+
+function compareSortCellText(aText, bText, order = 'asc') {
+  if (aText === bText) return 0;
+
+  const aEmpty = aText.trim() === '';
+  const bEmpty = bText.trim() === '';
+  if (aEmpty || bEmpty) {
+    if (aEmpty && bEmpty) return 0;
+    return aEmpty ? 1 : -1;
+  }
+
+  const aNum = Number(aText);
+  const bNum = Number(bText);
+  const aIsNum = Number.isFinite(aNum);
+  const bIsNum = Number.isFinite(bNum);
+  if (aIsNum && bIsNum) {
+    return order === 'desc' ? bNum - aNum : aNum - bNum;
+  }
+
+  const result = aText.localeCompare(bText, undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+  return order === 'desc' ? -result : result;
+}
+
 // src: cellRange
 // dst: cellRange
 function canPaste(src, dst, error = () => {}) {
@@ -1028,8 +1058,10 @@ export default class DataProxy {
     const oldAry = Array.from(fset);
     if (sort) {
       fary.sort((a, b) => {
-        if (sort.order === 'asc') return a - b;
-        if (sort.order === 'desc') return b - a;
+        const aText = getCellSortText(rows, a, sort.ci);
+        const bText = getCellSortText(rows, b, sort.ci);
+        const result = compareSortCellText(aText, bText, sort.order);
+        if (sort.order === 'asc' || sort.order === 'desc') return result || (a - b);
         return 0;
       });
     }
