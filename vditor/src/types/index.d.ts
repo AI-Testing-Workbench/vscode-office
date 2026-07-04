@@ -6,6 +6,20 @@ interface Window {
     VditorI18n: ITips;
 }
 
+/** CSS Custom Highlight API */
+declare class Highlight {
+    constructor(...ranges: Range[]);
+}
+
+interface CSSHighlights {
+    set(name: string, highlight: Highlight): void;
+    delete(name: string): void;
+}
+
+interface CSS {
+    readonly highlights: CSSHighlights;
+}
+
 interface IObject {
     [key: string]: string;
 }
