@@ -327,6 +327,16 @@ export const setAIModels = (models: AIModel[]) => {
     setGlobalLocalStorageSetting(AI_MODELS_KEY, JSON.stringify(models));
 };
 
+export const applyPageWidthSetting = (vditorElement: HTMLElement, pageWidth?: string) => {
+    if (pageWidth !== undefined && pageWidth !== PAGE_WIDTH_DEFAULT) {
+        vditorElement.style.setProperty("--vditor-page-width", pageWidth);
+        vditorElement.setAttribute("data-page-width-mode", "fixed");
+        return;
+    }
+    vditorElement.style.removeProperty("--vditor-page-width");
+    vditorElement.setAttribute("data-page-width-mode", "fluid");
+};
+
 export const applyEditorSettings = (vditorElement: HTMLElement) => {
     const uiSize = getGlobalLocalStorageSetting<number>(UI_FONT_SIZE_KEY);
     const editorSize = getGlobalLocalStorageSetting<number>(EDITOR_FONT_SIZE_KEY);
@@ -347,9 +357,7 @@ export const applyEditorSettings = (vditorElement: HTMLElement) => {
         vditorElement.style.removeProperty("--code-font-family");
     }
     applyBoldColorSetting(vditorElement, boldColor);
-    if (pageWidth !== undefined && pageWidth !== PAGE_WIDTH_DEFAULT) {
-        vditorElement.style.setProperty("--vditor-page-width", pageWidth);
-    }
+    applyPageWidthSetting(vditorElement, pageWidth);
     if (imgMaxWidth !== undefined) vditorElement.style.setProperty("--vditor-image-max-width", `${imgMaxWidth}%`);
     if (imgMaxHeight !== undefined) vditorElement.style.setProperty("--vditor-image-max-height", `${imgMaxHeight}vh`);
     const codeBlockMaxHeight = getGlobalLocalStorageSetting<string>(CODE_BLOCK_MAX_HEIGHT_KEY);

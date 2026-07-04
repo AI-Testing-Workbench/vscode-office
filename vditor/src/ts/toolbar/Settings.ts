@@ -27,6 +27,7 @@ import {
     normalizeBoldColorValue,
     PAGE_WIDTH_KEY,
     PAGE_WIDTH_OPTIONS,
+    applyPageWidthSetting,
     IMAGE_MAX_WIDTH_KEY,
     IMAGE_MAX_HEIGHT_KEY,
     IMAGE_MAX_WIDTH_DEFAULT,
@@ -172,8 +173,7 @@ export class Settings extends MenuItem {
                 applyBoldColorSetting(vditor.element, value);
             }
             else if (key === PAGE_WIDTH_KEY) {
-                if (value === "100%") vditor.element.style.removeProperty("--vditor-page-width");
-                else vditor.element.style.setProperty("--vditor-page-width", value);
+                applyPageWidthSetting(vditor.element, value);
             }
             else if (key === CODE_BLOCK_MAX_HEIGHT_KEY) {
                 if (value === CODE_BLOCK_MAX_HEIGHT_DEFAULT) vditor.element.style.removeProperty("--cm-block-max-height");
