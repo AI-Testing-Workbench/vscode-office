@@ -1,7 +1,7 @@
 import {EditorSelection, RangeSetBuilder, StateEffect, StateField} from "@codemirror/state";
 import {Decoration, DecorationSet, EditorView} from "@codemirror/view";
 
-import {getCodeMirrorView} from "../codeBlock/codeMirrorManager";
+import {focusCodeMirror, getCodeMirrorView} from "../codeBlock/codeMirrorManager";
 
 const HIGHLIGHT_CLASS = "vditor-find-highlight";
 const CURRENT_CLASS = "vditor-find-highlight--current";
@@ -26,7 +26,7 @@ interface FindDomMatch {
 interface FindCodeMirrorMatch {
     kind: "cm";
     block: HTMLElement;
-    view: EditorView;
+    view?: EditorView;
     from: number;
     to: number;
 }
@@ -94,6 +94,15 @@ export class FindBar {
             }
         });
 
+        document.addEventListener("keydown", (e) => {
+            if (e.key !== "Escape" || !this.isVisible()) {
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            this.hide();
+        }, true);
+
         (this.element.querySelector("[data-dir='-1']") as HTMLElement).addEventListener("click", () => this.navigate(-1));
         (this.element.querySelector("[data-dir='1']") as HTMLElement).addEventListener("click", () => this.navigate(1));
         (this.element.querySelector(".vditor-find-bar__close") as HTMLElement).addEventListener("click", () => this.hide());
@@ -132,10 +141,39 @@ export class FindBar {
     }
 
     private scrollCodeMirrorMatchIntoView(match: FindCodeMirrorMatch) {
-        match.view.dispatch({
+        const view = this.ensureCodeMirrorMatchView(match);
+        if (!view) {
+            match.block.scrollIntoView({block: "nearest", inline: "nearest"});
+            return;
+        }
+        view.dispatch({
             effects: EditorView.scrollIntoView(match.from, {y: "center"}),
             selection: EditorSelection.cursor(match.from),
         });
+    }
+
+    private ensureCodeMirrorMatchView(match: FindCodeMirrorMatch) {
+        const currentView = getCodeMirrorView(match.block);
+        if (currentView) {
+            match.view = currentView;
+            return currentView;
+        }
+        focusCodeMirror(match.block, true, this.vditor);
+        const mountedView = getCodeMirrorView(match.block);
+        if (mountedView) {
+            match.view = mountedView;
+        }
+        return mountedView;
+    }
+
+    private restoreInputFocus() {
+        if (!this.isVisible() || document.activeElement === this.input) {
+            return;
+        }
+        const selectionStart = this.input.selectionStart ?? this.input.value.length;
+        const selectionEnd = this.input.selectionEnd ?? selectionStart;
+        this.input.focus({preventScroll: true});
+        this.input.setSelectionRange(selectionStart, selectionEnd);
     }
 
     private search() {
@@ -209,11 +247,12 @@ export class FindBar {
         const blockElements = root.querySelectorAll<HTMLElement>("[data-type='code-block'], [data-type='math-block']");
         for (const blockElement of blockElements) {
             const view = getCodeMirrorView(blockElement);
-            if (!view) {
-                continue;
+            if (view) {
+                ensureFindDecorationsField(view);
             }
-            ensureFindDecorationsField(view);
-            const text = view.state.doc.toString();
+            const text = view?.state.doc.toString()
+                ?? blockElement.querySelector("pre code, code")?.textContent
+                ?? "";
             const lowerText = text.toLowerCase();
             let idx = lowerText.indexOf(lowerQuery);
             while (idx !== -1) {
@@ -326,20 +365,25 @@ export class FindBar {
     }
 
     private updateCurrent() {
+        const currentMatch = this.currentIndex >= 0 ? this.matches[this.currentIndex] : undefined;
+        if (currentMatch?.kind === "cm") {
+            this.ensureCodeMirrorMatchView(currentMatch);
+        }
         this.matches.forEach((match, i) => {
             if (match.kind === "dom") {
                 match.mark.classList.toggle(CURRENT_CLASS, i === this.currentIndex);
             }
         });
         this.updateCodeMirrorDecorations();
-        if (this.currentIndex >= 0 && this.matches[this.currentIndex]) {
-            const match = this.matches[this.currentIndex];
+        if (currentMatch) {
+            const match = currentMatch;
             if (match.kind === "dom") {
                 this.scrollMarkIntoView(match.mark);
             } else {
                 this.scrollCodeMirrorMatchIntoView(match);
             }
         }
+        this.restoreInputFocus();
     }
 
     private updateCount() {
