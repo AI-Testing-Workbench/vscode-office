@@ -1,16 +1,21 @@
 import { isInsideCodeBlockChrome } from "../codeBlock/codeMirrorManager";
 import { syncBlockMarkerTop } from "../util/blockMarker";
-import { getEditorRange } from "../util/selection";
+import { scrollElementIntoEditorView, setSelectionFocus } from "../util/selection";
+import { telemetry } from "../util/telemetry";
 import { afterRenderEvent } from "./afterRenderEvent";
 import { renderToc } from "../util/toc";
 
 const ROOT_CLASS = "vditor-block-handle";
 const DRAG_CLASS = "vditor-block-handle__drag";
+const INSERT_CLASS = "vditor-block-handle__insert";
 const GRIP_CLASS = "vditor-block-handle__grip";
+const INSERT_ICON_CLASS = "vditor-block-handle__insert-icon";
 const DROP_LINE_CLASS = "vditor-block-handle__drop-line";
 const DRAGGING_CLASS = "vditor-block-handle--dragging";
 const SOURCE_DRAGGING_CLASS = "vditor-block-handle__source--dragging";
 const GHOST_CLASS = "vditor-block-handle__ghost";
+const HANDLE_GAP = 4;
+const HANDLE_SIZE = 20;
 /** 向上拖拽时，插入线提前触发的像素容差 */
 const DROP_LINE_HIT_OFFSET = 14;
 
@@ -26,6 +31,7 @@ interface DropTargetLine extends DropTarget {
 interface IBlockHandleState {
     root: HTMLElement;
     dragBtn: HTMLButtonElement;
+    insertBtn: HTMLButtonElement;
     dropLine: HTMLElement;
     wrapper: HTMLElement;
     editorElement: HTMLElement;
@@ -379,9 +385,8 @@ const positionHandle = (state: IBlockHandleState, block: HTMLElement) => {
     const blockRect = block.getBoundingClientRect();
     const wrapperRect = state.wrapper.getBoundingClientRect();
     const lineHeight = parseFloat(getComputedStyle(block).lineHeight) || 24;
-    const handleSize = 20;
-    const top = blockRect.top - wrapperRect.top + Math.max(0, Math.min(lineHeight / 2 - handleSize / 2, 6));
-    const left = blockRect.left - wrapperRect.left - (block.tagName === "LI" ? 40 : 28);
+    const top = blockRect.top - wrapperRect.top + Math.max(0, Math.min(lineHeight / 2 - HANDLE_SIZE / 2, 6));
+    const left = blockRect.left - wrapperRect.left - (block.tagName === "LI" ? 40 : 28) - HANDLE_SIZE - HANDLE_GAP;
     syncBlockMarkerTop(block);
     state.root.style.top = `${top}px`;
     state.root.style.left = `${left}px`;
@@ -458,6 +463,70 @@ const createDragGhost = (block: HTMLElement) => {
     return ghost;
 };
 
+const createEmptySiblingHTML = (block: HTMLElement) => {
+    if (block.tagName === "LI") {
+        const marker = block.getAttribute("data-marker");
+        const markerAttr = marker ? ` data-marker="${marker}"` : "";
+        if (block.classList.contains("vditor-task")) {
+            return `<li class="vditor-task"${markerAttr}><input type="checkbox"> <wbr></li>`;
+        }
+        return `<li${markerAttr}><wbr></li>`;
+    }
+    return `<p data-block="0"><wbr>\n</p>`;
+};
+
+const focusInsertedBlock = (vditor: IVditor, block: HTMLElement) => {
+    const editor = vditor.wysiwyg.element;
+    const wbr = block.querySelector("wbr");
+    const range = editor.ownerDocument.createRange();
+    editor.focus({ preventScroll: true });
+    if (wbr) {
+        if (wbr.previousSibling?.nodeType === Node.TEXT_NODE) {
+            range.setStart(wbr.previousSibling, wbr.previousSibling.textContent.length);
+        } else if (wbr.nextSibling?.nodeType === Node.TEXT_NODE) {
+            range.setStart(wbr.nextSibling, 0);
+        } else if (wbr.nextSibling) {
+            range.setStartBefore(wbr.nextSibling);
+        } else {
+            range.setStart(wbr.parentElement || block, 0);
+        }
+        wbr.remove();
+    } else {
+        range.selectNodeContents(block);
+        range.collapse(true);
+    }
+    range.collapse(true);
+    setSelectionFocus(range);
+    scrollElementIntoEditorView(vditor, block);
+};
+
+const insertEmptyBlockAfterActiveBlock = (vditor: IVditor, state: IBlockHandleState) => {
+    const block = state.activeBlock;
+    if (!block || !block.isConnected || vditor.currentMode !== "wysiwyg") {
+        return;
+    }
+
+    telemetry(vditor, "markdown.block.insertAfter", {
+        block: block.tagName.toLowerCase(),
+        source: "block-handle",
+    });
+    block.insertAdjacentHTML("afterend", createEmptySiblingHTML(block));
+    const insertedBlock = block.nextElementSibling as HTMLElement | null;
+    if (!insertedBlock) {
+        return;
+    }
+
+    state.activeBlock = insertedBlock;
+    focusInsertedBlock(vditor, insertedBlock);
+    positionHandle(state, insertedBlock);
+    vditor.undo.addToUndoStack(vditor);
+    afterRenderEvent(vditor, {
+        enableAddUndoStack: false,
+        enableHint: false,
+        enableInput: true,
+    });
+};
+
 const positionDragGhost = (
     ghost: HTMLElement,
     clientX: number,
@@ -488,6 +557,11 @@ const finishDrag = (vditor: IVditor, state: IBlockHandleState) => {
             && wouldMoveBlock(block, dropTarget);
         if (moved) {
             applyDropTarget(block, dropTarget, editor);
+            telemetry(vditor, "markdown.block.move", {
+                block: block.tagName.toLowerCase(),
+                from: state.originalDropTarget?.container.tagName.toLowerCase() || "",
+                to: dropTarget.container.tagName.toLowerCase(),
+            });
             renderToc(vditor);
             vditor.undo.addToUndoStack(vditor);
             afterRenderEvent(vditor, {
@@ -598,6 +672,14 @@ export const initBlockHandle = (vditor: IVditor, wrapper: HTMLElement, editorEle
     dragBtn.className = DRAG_CLASS;
     dragBtn.setAttribute("aria-label", window.VditorI18n.dragBlock || "Drag to move block");
     dragBtn.innerHTML = `<svg class="${GRIP_CLASS}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 14" width="8" height="14"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="6" cy="2" r="1.2" fill="currentColor"/><circle cx="2" cy="7" r="1.2" fill="currentColor"/><circle cx="6" cy="7" r="1.2" fill="currentColor"/><circle cx="2" cy="12" r="1.2" fill="currentColor"/><circle cx="6" cy="12" r="1.2" fill="currentColor"/></svg>`;
+
+    const insertBtn = document.createElement("button");
+    insertBtn.type = "button";
+    insertBtn.className = INSERT_CLASS;
+    insertBtn.setAttribute("aria-label", window.VditorI18n["insert-after"] || "Insert line after");
+    insertBtn.setAttribute("title", window.VditorI18n["insert-after"] || "Insert line after");
+    insertBtn.innerHTML = `<svg class="${INSERT_ICON_CLASS}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" width="12" height="12"><path fill="currentColor" d="M5 1h2v4h4v2H7v4H5V7H1V5h4z"/></svg>`;
+    root.appendChild(insertBtn);
     root.appendChild(dragBtn);
 
     const dropLine = document.createElement("div");
@@ -609,6 +691,7 @@ export const initBlockHandle = (vditor: IVditor, wrapper: HTMLElement, editorEle
     const state: IBlockHandleState = {
         root,
         dragBtn,
+        insertBtn,
         dropLine,
         wrapper,
         editorElement,
@@ -630,6 +713,12 @@ export const initBlockHandle = (vditor: IVditor, wrapper: HTMLElement, editorEle
     });
     dragBtn.addEventListener("pointerdown", (event) => {
         startDrag(vditor, state, event);
+    });
+    insertBtn.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+    });
+    insertBtn.addEventListener("click", () => {
+        insertEmptyBlockAfterActiveBlock(vditor, state);
     });
 
     const onMouseMove = (event: MouseEvent) => {

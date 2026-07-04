@@ -46,7 +46,6 @@ export async function getToolbar(resPath, onSave = null) {
         "table",
         "|",
         "quote",
-        "line",
         "code",
         "inline-code",
         "|",
