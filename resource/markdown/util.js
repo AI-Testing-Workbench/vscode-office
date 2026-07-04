@@ -53,8 +53,7 @@ export async function getToolbar(resPath, onSave = null) {
         "|",
         "find",
         "ai-settings",
-        "settings",
-        "help",
+        "settings"
     ]
 }
 
