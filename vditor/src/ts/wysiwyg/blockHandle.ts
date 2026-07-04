@@ -46,6 +46,7 @@ interface IBlockHandleState {
     dragGhost: HTMLElement | null;
     dragOffsetX: number;
     dragOffsetY: number;
+    moveRafId: number;
     unbind?: () => void;
 }
 
@@ -129,7 +130,32 @@ const getListItemDepth = (li: HTMLElement, editor: HTMLElement) => {
     return depth;
 };
 
-const getListItemAtPoint = (y: number, editor: HTMLElement) => {
+const getListItemAtPoint = (y: number, editor: HTMLElement, hitElement: Element | null) => {
+    if (hitElement && editor.contains(hitElement)) {
+        const innermost = getInnermostListItem(hitElement, editor);
+        if (innermost) {
+            const rect = innermost.getBoundingClientRect();
+            if (y >= rect.top && y <= rect.bottom) {
+                return innermost;
+            }
+        }
+        let current: Element | null = hitElement;
+        let inListContext = false;
+        while (current && current !== editor) {
+            if (current.tagName === "LI") {
+                inListContext = true;
+                break;
+            }
+            if (isListElement(current)) {
+                inListContext = true;
+                break;
+            }
+            current = current.parentElement;
+        }
+        if (!inListContext) {
+            return null;
+        }
+    }
     let best: HTMLElement | null = null;
     let bestDepth = -1;
     let bestHeight = Infinity;
@@ -187,7 +213,7 @@ const getDraggableBlockFromPoint = (x: number, y: number, editor: HTMLElement) =
     if (tocBlock) {
         return tocBlock;
     }
-    const listItem = getListItemAtPoint(y, editor);
+    const listItem = getListItemAtPoint(y, editor, hitElement);
     if (listItem) {
         return listItem;
     }
@@ -681,6 +707,9 @@ const showForBlock = (vditor: IVditor, block: HTMLElement | null) => {
         clearTimeout(state.hideTimer);
         state.hideTimer = null;
     }
+    if (state.activeBlock === block) {
+        return;
+    }
     setBlockHandleTarget(state, block);
     state.activeBlock = block;
     positionHandle(state, block);
@@ -732,6 +761,7 @@ export const initBlockHandle = (vditor: IVditor, wrapper: HTMLElement, editorEle
         dragGhost: null,
         dragOffsetX: 0,
         dragOffsetY: 0,
+        moveRafId: 0,
     };
     handleMap.set(editorElement, state);
 
@@ -748,16 +778,29 @@ export const initBlockHandle = (vditor: IVditor, wrapper: HTMLElement, editorEle
         insertEmptyBlockAfterActiveBlock(vditor, state);
     });
 
+    let pendingMoveX = 0;
+    let pendingMoveY = 0;
+    let pendingMoveTarget: EventTarget | null = null;
+
     const onMouseMove = (event: MouseEvent) => {
-        if (state.dragging || !shouldShowHandle(vditor, editorElement, event.target)) {
+        pendingMoveX = event.clientX;
+        pendingMoveY = event.clientY;
+        pendingMoveTarget = event.target;
+        if (state.moveRafId) {
             return;
         }
-        const block = getDraggableBlockFromPoint(event.clientX, event.clientY, editorElement);
-        if (block) {
-            showForBlock(vditor, block);
-        } else {
-            hideHandle(state);
-        }
+        state.moveRafId = requestAnimationFrame(() => {
+            state.moveRafId = 0;
+            if (state.dragging || !shouldShowHandle(vditor, editorElement, pendingMoveTarget)) {
+                return;
+            }
+            const block = getDraggableBlockFromPoint(pendingMoveX, pendingMoveY, editorElement);
+            if (block) {
+                showForBlock(vditor, block);
+            } else {
+                hideHandle(state);
+            }
+        });
     };
 
     const onMouseLeave = (event: MouseEvent) => {
@@ -798,6 +841,10 @@ export const initBlockHandle = (vditor: IVditor, wrapper: HTMLElement, editorEle
     window.addEventListener("scroll", onScroll, { passive: true });
 
     state.unbind = () => {
+        if (state.moveRafId) {
+            cancelAnimationFrame(state.moveRafId);
+            state.moveRafId = 0;
+        }
         setBlockHandleTarget(state, null);
         wrapper.removeEventListener("mousemove", onMouseMove);
         wrapper.removeEventListener("mouseleave", onMouseLeave);

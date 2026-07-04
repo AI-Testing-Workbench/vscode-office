@@ -919,16 +919,23 @@ export const initTableHandle = (vditor: IVditor, wrapper: HTMLElement, editorEle
             return;
         }
         if (!shouldShowHandle(vditor, editorElement, event.target)) {
-            state.hoveredTable = null;
-            scheduleRefresh(vditor, state);
+            if (state.hoveredTable !== null) {
+                state.hoveredTable = null;
+                scheduleRefresh(vditor, state);
+            }
             return;
         }
         const table = getTableAtPoint(event.clientX, event.clientY, editorElement);
+        let nextHovered = state.hoveredTable;
         if (table) {
-            state.hoveredTable = table;
+            nextHovered = table;
         } else if (!isTableHandleElement(event.target as Element)) {
-            state.hoveredTable = null;
+            nextHovered = null;
         }
+        if (nextHovered === state.hoveredTable) {
+            return;
+        }
+        state.hoveredTable = nextHovered;
         scheduleRefresh(vditor, state);
     };
 
@@ -1015,9 +1022,30 @@ export const initTableHandle = (vditor: IVditor, wrapper: HTMLElement, editorEle
 
 export const updateTableHandle = (vditor: IVditor) => {
     const state = getTableHandleState(vditor);
-    if (state) {
-        scheduleRefresh(vditor, state);
+    if (!state) {
+        return;
     }
+    if (!shouldShowHandle(vditor, state.editorElement, document.activeElement)) {
+        hideAll(state);
+        return;
+    }
+    const focusedCell = getFocusedCell(vditor, state.editorElement);
+    if (!focusedCell && !state.hoveredTable && !isAxisMenuOpen(state)) {
+        if (state.activeTable) {
+            hideAll(state);
+        }
+        return;
+    }
+    const tableFromFocus = focusedCell?.closest("table") as HTMLTableElement | null;
+    if (
+        focusedCell
+        && focusedCell === state.focusedCell
+        && tableFromFocus === state.activeTable
+        && !state.hoveredTable
+    ) {
+        return;
+    }
+    scheduleRefresh(vditor, state);
 };
 
 export const hideTableHandle = (vditor: IVditor) => {
