@@ -110,7 +110,7 @@ class Rows {
   }
 
   // what: all | format | text
-  copyPaste(srcCellRange, dstCellRange, what, autofill = false, cb = () => {}) {
+  copyPaste(srcCellRange, dstCellRange, what, autofill = false, cb = () => {}, mapRow = (ri) => ri) {
     const {
       sri, sci, eri, eci,
     } = srcCellRange;
@@ -129,14 +129,15 @@ class Rows {
       else dn = dcn;
     }
     for (let i = sri; i <= eri; i += 1) {
-      if (this._[i]) {
+      const srcRi = mapRow(i);
+      if (this._[srcRi]) {
         for (let j = sci; j <= eci; j += 1) {
-          if (this._[i].cells && this._[i].cells[j]) {
+          if (this._[srcRi].cells && this._[srcRi].cells[j]) {
             for (let ii = dsri; ii <= deri; ii += rn) {
               for (let jj = dsci; jj <= deci; jj += cn) {
-                const nri = ii + (i - sri);
+                const nri = mapRow(ii + (i - sri));
                 const nci = jj + (j - sci);
-                const ncell = helper.cloneDeep(this._[i].cells[j]);
+                const ncell = helper.cloneDeep(this._[srcRi].cells[j]);
                 // ncell.text
                 if (autofill && ncell && ncell.text && ncell.text.length > 0) {
                   const { text } = ncell;
@@ -177,29 +178,17 @@ class Rows {
     }
   }
 
-  cutPaste(srcCellRange, dstCellRange) {
-    const ncellmm = {};
-    this.each((ri) => {
-      this.eachCells(ri, (ci) => {
-        let nri = parseInt(ri, 10);
-        let nci = parseInt(ci, 10);
-        if (srcCellRange.includes(ri, ci)) {
-          nri = dstCellRange.sri + (nri - srcCellRange.sri);
-          nci = dstCellRange.sci + (nci - srcCellRange.sci);
-        }
-        ncellmm[nri] = ncellmm[nri] || { cells: {} };
-        ncellmm[nri].cells[nci] = this._[ri].cells[ci];
-      });
-    });
-    this._ = ncellmm;
+  cutPaste(srcCellRange, dstCellRange, mapRow = (ri) => ri) {
+    this.copyPaste(srcCellRange, dstCellRange, 'all', false, () => {}, mapRow);
+    this.deleteCells(srcCellRange, 'all', mapRow);
   }
 
   // src: Array<Array<String>>
-  paste(src, dstCellRange) {
+  paste(src, dstCellRange, mapRow = (ri) => ri) {
     if (src.length <= 0) return;
     const { sri, sci } = dstCellRange;
     src.forEach((row, i) => {
-      const ri = sri + i;
+      const ri = mapRow(sri + i);
       row.forEach((cell, j) => {
         const ci = sci + j;
         this.setCellText(ri, ci, cell);
@@ -282,9 +271,9 @@ class Rows {
   }
 
   // what: all | text | format | merge
-  deleteCells(cellRange, what = 'all') {
+  deleteCells(cellRange, what = 'all', mapRow = (ri) => ri) {
     cellRange.each((i, j) => {
-      this.deleteCell(i, j, what);
+      this.deleteCell(mapRow(i), j, what);
     });
   }
 

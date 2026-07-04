@@ -1,8 +1,10 @@
 import ExcelJS from '@cweijan/exceljs';
+import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import { inferSchema, initParser } from 'udsv';
 import { decodeCsvBuffer } from './csvEncoding';
 import { DEFAULT_ROW_HEIGHT_PX, excelFreezeToExpr, excelRowHeightToPx, readAutofilterRef } from './excel_meta';
+import { readWorksheetSortStateXml } from './excel_sort_state';
 import { excelJsCellToStyle, StyleRegistry } from './excel_styles';
 import { mergeHyperlinkMaps, readCellHyperlink } from './excel_hyperlink';
 import { readWorksheetBackgroundImage, readWorksheetImages } from './excel_images';
@@ -125,6 +127,27 @@ const applyRowHeight = (rows: RowMap, ri: number, excelRow: ExcelJS.Row) => {
     }
 };
 
+const readWorkbookSortStateXml = async (buffer: ArrayBuffer) => {
+    const zip = await JSZip.loadAsync(buffer);
+    const entries = new Map<number, ReturnType<typeof readWorksheetSortStateXml>>();
+    const worksheetFiles = Object.keys(zip.files)
+        .map((name) => {
+            const match = /^xl\/worksheets\/sheet(\d+)\.xml$/i.exec(name);
+            return match ? { index: Number(match[1]) - 1, name } : null;
+        })
+        .filter((it): it is { index: number; name: string } => Boolean(it))
+        .sort((a, b) => a.index - b.index);
+
+    for (let i = 0; i < worksheetFiles.length; i += 1) {
+        const file = worksheetFiles[i];
+        const xml = await zip.file(file.name)?.async('string');
+        if (!xml) continue;
+        entries.set(file.index, readWorksheetSortStateXml(xml));
+    }
+
+    return entries;
+};
+
 const convertExcelJsWorksheet = (worksheet: ExcelJS.Worksheet, workbook: ExcelJS.Workbook): Pick<SheetData, 'rows' | 'cols' | 'styles' | 'merges' | 'freeze' | 'autofilter' | 'hyperlinks' | 'validations' | 'sheetProtection' | 'images' | 'backgroundImage'> => {
     const rows: RowMap = {};
     const styleRegistry = new StyleRegistry();
@@ -196,13 +219,20 @@ const convertExcelJsWorksheet = (worksheet: ExcelJS.Worksheet, workbook: ExcelJS
     };
 };
 
-const convertExcelJsWorkbook = (workbook: ExcelJS.Workbook): ExcelData => {
+const convertExcelJsWorkbook = (
+    workbook: ExcelJS.Workbook,
+    sortStateXmlMap?: Map<number, ReturnType<typeof readWorksheetSortStateXml>>,
+): ExcelData => {
     const sheets: SheetData[] = [];
     let maxLength = 0;
     let maxCols = 26;
 
-    for (const worksheet of workbook.worksheets) {
+    workbook.worksheets.forEach((worksheet, index) => {
         const converted = convertExcelJsWorksheet(worksheet, workbook);
+        const xmlAutofilter = sortStateXmlMap?.get(index);
+        if (xmlAutofilter?.sort && converted.autofilter?.ref) {
+            converted.autofilter.sort = xmlAutofilter.sort;
+        }
         const rowCount = converted.rows?.len ?? 0;
         if (maxLength < rowCount) maxLength = rowCount;
 
@@ -223,7 +253,7 @@ const convertExcelJsWorkbook = (workbook: ExcelJS.Workbook): ExcelData => {
             ...(converted.images ? { images: converted.images } : {}),
             ...(converted.backgroundImage ? { backgroundImage: converted.backgroundImage } : {}),
         });
-    }
+    });
 
     return { sheets, maxLength, maxCols };
 };
@@ -231,7 +261,8 @@ const convertExcelJsWorkbook = (workbook: ExcelJS.Workbook): ExcelData => {
 const loadWithExcelJs = async (buffer: ArrayBuffer): Promise<ExcelData> => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer);
-    return convertExcelJsWorkbook(workbook);
+    const sortStateXmlMap = await readWorkbookSortStateXml(buffer);
+    return convertExcelJsWorkbook(workbook, sortStateXmlMap);
 };
 
 const sheetJsColWidthToPx = (col?: XLSX.ColInfo) => {

@@ -121,20 +121,16 @@ function renderCellBorders(bboxes, translateFunc) {
 */
 
 export function renderCell(draw, data, rindex, cindex, yoffset = 0) {
-  const { sortedRowMap, rows, cols } = data;
+  const { rows, cols } = data;
   if (rows.isHide(rindex) || cols.isHide(cindex)) return;
-  let nrindex = rindex;
-  if (sortedRowMap.has(rindex)) {
-    nrindex = sortedRowMap.get(rindex);
-  }
 
-  const cell = data.getCell(nrindex, cindex);
-  const isLocked = !data.canEditCell(nrindex, cindex);
+  const cell = data.getCell(rindex, cindex);
+  const isLocked = !data.canEditCell(rindex, cindex);
   const lockedColor = getExcelThemeColor('--excel-locked-indicator', 'rgba(61, 153, 112, 0.42)');
 
   if (cell === null) {
     if (!isLocked) return;
-    const style = data.getCellStyleOrDefault(nrindex, cindex);
+    const style = data.getCellStyleOrDefault(rindex, cindex);
     const dbox = getDrawBox(data, rindex, cindex, yoffset);
     dbox.bgcolor = resolveExcelCellBg(style.bgcolor);
     draw.rect(dbox, () => {});
@@ -142,14 +138,15 @@ export function renderCell(draw, data, rindex, cindex, yoffset = 0) {
     return;
   }
 
-  const style = data.getCellStyleOrDefault(nrindex, cindex);
+  const style = data.getCellStyleOrDefault(rindex, cindex);
   const defaultStyle = data.defaultStyle();
 
   const dbox = getDrawBox(data, rindex, cindex, yoffset);
   dbox.bgcolor = resolveExcelCellBg(style.bgcolor);
   if (style.border !== undefined) {
-    const mergeRange = data.merges && data.merges.getFirstIncludes(nrindex, cindex);
-    const isMergeSubcell = mergeRange && (mergeRange.sri !== nrindex || mergeRange.sci !== cindex);
+    const dataRow = data.sortedRowMap.has(rindex) ? data.sortedRowMap.get(rindex) : rindex;
+    const mergeRange = data.merges && data.merges.getFirstIncludes(dataRow, cindex);
+    const isMergeSubcell = mergeRange && (mergeRange.sri !== dataRow || mergeRange.sci !== cindex);
     if (!isMergeSubcell) {
       dbox.setBorders(style.border);
       draw.strokeBorders(dbox);
@@ -159,7 +156,10 @@ export function renderCell(draw, data, rindex, cindex, yoffset = 0) {
     // render text
     let cellText = '';
     if (!data.settings.evalPaused) {
-      cellText = _cell.render(cell.text || '', formulam, (y, x) => (data.getCellTextOrDefault(x, y)));
+      cellText = _cell.render(cell.text || '', formulam, (y, x) => {
+        const refCell = data.rows.getCell(x, y);
+        return (refCell && refCell.text) ? refCell.text : '';
+      });
     } else {
       cellText = cell.text || '';
     }
@@ -183,7 +183,7 @@ export function renderCell(draw, data, rindex, cindex, yoffset = 0) {
     };
     draw.text(cellText, dbox, drawStyle, style.textwrap);
     // error
-    const error = data.validations.getError(nrindex, cindex);
+    const error = data.getValidationError(rindex, cindex);
     if (error) {
       // console.log('error:', rindex, cindex, error);
       draw.error(dbox);
