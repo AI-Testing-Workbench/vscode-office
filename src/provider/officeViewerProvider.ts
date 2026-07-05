@@ -105,8 +105,7 @@ export class OfficeViewerProvider implements vscode.CustomReadonlyEditorProvider
 				if (route) break;
 				vscode.commands.executeCommand('vscode.openWith', uri, 'default');
 		}
-		const fileType = suffix.startsWith('.') ? suffix.slice(1) : suffix;
-		TelemetryService.get()?.trackOfficeViewOpen(uri.fsPath, route, fileType);
+		TelemetryService.get()?.trackOfficeViewOpen(uri.fsPath);
 		if (route) return ReactApp.view(webview, { route });
 	}
 

@@ -1,6 +1,6 @@
 import { TelemetryReporter } from '@vscode/extension-telemetry';
 import { env, ExtensionContext, workspace } from 'vscode';
-import { fileTypeFromPath, resolveOfficeViewType } from './officeViewType';
+import { fileTypeFromPath } from './officeViewType';
 
 /**
  * Application Insights connection string.
@@ -40,30 +40,28 @@ export class TelemetryService {
         return workspace.getConfiguration('vscode-office').get<boolean>('enableTelemetry', true);
     }
 
-    trackViewOpen(viewType: string, fileType?: string, properties?: Record<string, string>): void {
+    trackViewOpen(viewType: string, properties?: Record<string, string>): void {
         if (!this.enabled()) {
             return;
         }
-        const rateLimitKey = fileType ?? viewType;
         const now = Date.now();
-        const lastSent = this.viewOpenLastSentByFileType.get(rateLimitKey);
+        const lastSent = this.viewOpenLastSentByFileType.get(viewType);
         if (lastSent !== undefined && now - lastSent < TelemetryService.VIEW_OPEN_INTERVAL_MS) {
             return;
         }
-        this.viewOpenLastSentByFileType.set(rateLimitKey, now);
+        this.viewOpenLastSentByFileType.set(viewType, now);
         this.reporter!.sendTelemetryEvent('view.open', {
             viewType,
-            ...(fileType ? { fileType } : {}),
             ...properties,
         });
     }
 
-    trackOfficeViewOpen(fsPath: string, route?: string, fileType?: string): void {
-        const viewType = resolveOfficeViewType(fsPath, route);
-        if (!viewType) {
+    trackOfficeViewOpen(fsPath: string): void {
+        const ext = fileTypeFromPath(fsPath);
+        if (!ext) {
             return;
         }
-        this.trackViewOpen(viewType, fileType || fileTypeFromPath(fsPath));
+        this.trackViewOpen(ext);
     }
 
     trackEvent(event: string, properties?: Record<string, string>): void {

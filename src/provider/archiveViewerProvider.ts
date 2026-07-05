@@ -64,8 +64,7 @@ export class ArchiveViewerProvider implements vscode.CustomReadonlyEditorProvide
 				return;
 		}
 
-		const fileType = suffix.startsWith('.') ? suffix.slice(1) : suffix;
-		TelemetryService.get()?.trackOfficeViewOpen(uri.fsPath, 'zip', fileType);
+		TelemetryService.get()?.trackOfficeViewOpen(uri.fsPath);
 		void ReactApp.view(webview, { route: 'zip' });
 	}
 }

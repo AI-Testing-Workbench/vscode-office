@@ -5,11 +5,6 @@
 				"classification": "SystemMetaData",
 				"purpose": "FeatureInsight",
 				"endPoint": "Azure"
-			},
-			"fileType": {
-				"classification": "SystemMetaData",
-				"purpose": "FeatureInsight",
-				"endPoint": "Azure"
 			}
 		}
 	}
