@@ -2,7 +2,7 @@ import { Output } from "@/common/Output";
 import { FileUtil } from "@/common/fileUtil";
 import { Handler } from "@/common/handler";
 import { isZipPasswordError } from '@/service/compress/passwordUtils';
-import { planExtractTarget, revealExtractResult } from '@/service/compress/archiveUtils';
+import { planExtractTarget, resolveContainedPath, revealExtractResult } from '@/service/compress/archiveUtils';
 import prettyBytes from "@/service/zip/pretty-bytes";
 import { ZipArchive } from "@/service/zip/zipArchive";
 import { mkdirSync, writeFileSync } from "fs";
@@ -61,7 +61,7 @@ export async function handleZip(uri: Uri, handler: Handler) {
             if (needsPassword && !archivePassword) return;
 
             await commands.executeCommand('workbench.action.keepEditor');
-            const tempPath = `${decompressPath}/${entryName}`;
+            const tempPath = resolveContainedPath(decompressPath, entryName);
             mkdirSync(resolve(tempPath, '..'), { recursive: true });
             try {
                 writeFileSync(tempPath, await archive.readEntry(file, archivePassword));
