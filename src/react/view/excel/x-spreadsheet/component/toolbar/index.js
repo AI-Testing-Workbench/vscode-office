@@ -164,10 +164,10 @@ export default class Toolbar {
       ],
       buildDivider(),
       [
-        this.formulaEl = new Formula(),
-        this.autofilterEl = new Autofilter(),
-        this.freezeEl = new Freeze(),
         this.findEl = new Find(),
+        this.autofilterEl = new Autofilter(),
+        this.formulaEl = new Formula(),
+        this.freezeEl = new Freeze(),
       ],
     ];
 

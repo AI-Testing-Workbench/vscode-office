@@ -10,7 +10,7 @@ import { detectCsvEncoding } from "./csvEncoding.ts";
 import { loadSheets } from "./excel_reader.ts";
 import { export_xlsx, exportSaveAs, buildFormattingSnapshot, hasFormattingChanged } from "./excel_writer.ts";
 import Spreadsheet from './x-spreadsheet/index';
-import FindReplacePanel from './FindReplacePanel';
+import FindReplacePanel, { type FindReplacePanelHandle } from './FindReplacePanel';
 import { parseSpreadsheetLink } from './excel_hyperlink';
 import { initExcelLocale, t } from './excel_i18n';
 
@@ -64,6 +64,8 @@ function ExcelViewer() {
     const [dark, setDark] = useState(loadDarkMode)
     const [readOnly, setReadOnly] = useState(false)
     const [findPanel, setFindPanel] = useState<'find' | 'replace' | null>(null)
+    const findPanelRef = useRef<'find' | 'replace' | null>(null)
+    const findReplacePanelRef = useRef<FindReplacePanelHandle>(null)
     const [loadError, setLoadError] = useState<string | null>(null)
     const [saveAsVisible, setSaveAsVisible] = useState(false)
     const [saveAsFormat, setSaveAsFormat] = useState('xlsx')
@@ -75,6 +77,10 @@ function ExcelViewer() {
     const csvEncodingRef = useRef<'utf8' | 'gbk'>('utf8')
     const csvDelimiterRef = useRef(',')
     const initialFormattingRef = useRef('')
+
+    useEffect(() => {
+        findPanelRef.current = findPanel;
+    }, [findPanel]);
 
     useEffect(() => {
         document.body.classList.toggle('office-dark', dark)
@@ -209,7 +215,14 @@ function ExcelViewer() {
             }
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF') {
                 e.preventDefault();
-                setFindPanel('find');
+                if (findPanelRef.current) {
+                    if (findPanelRef.current !== 'find') {
+                        setFindPanel('find');
+                    }
+                    findReplacePanelRef.current?.focusFindInput(true);
+                } else {
+                    setFindPanel('find');
+                }
                 return;
             }
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyH') {
@@ -251,7 +264,16 @@ function ExcelViewer() {
                 spreadSheet.on('save', () => void handleSave());
             }
             spreadSheet.on('save-as', () => { void handleSaveAs(); });
-            spreadSheet.on('find', () => { setFindPanel('find'); });
+            spreadSheet.on('find', () => {
+                if (findPanelRef.current) {
+                    if (findPanelRef.current !== 'find') {
+                        setFindPanel('find');
+                    }
+                    findReplacePanelRef.current?.focusFindInput(true);
+                } else {
+                    setFindPanel('find');
+                }
+            });
             const persistView = () => {
                 saveViewState(documentCacheIdRef.current, spreadSheet.getSelection());
             };
@@ -348,6 +370,7 @@ function ExcelViewer() {
             )}
             {findPanel && !loading && !loadError && (
                 <FindReplacePanel
+                    ref={findReplacePanelRef}
                     spreadSheet={activeSpreadsheet}
                     mode={findPanel}
                     onClose={() => setFindPanel(null)}
