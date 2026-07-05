@@ -346,6 +346,21 @@ export const refreshSettingsPanel = (panelElement: HTMLElement, vditor: IVditor)
     }
 };
 
+const isAISettingsAddRowOpen = (panelElement: HTMLElement, selector: string) => {
+    const row = panelElement.querySelector<HTMLElement>(selector);
+    return !!row && row.style.display !== "none";
+};
+
+export const hasOpenAISettingsPromptForm = (panelElement: HTMLElement) => {
+    return !!panelElement.dataset.editingPromptId
+        || isAISettingsAddRowOpen(panelElement, "[data-ai-add-row]");
+};
+
+export const hasOpenAISettingsModelForm = (panelElement: HTMLElement) => {
+    return !!panelElement.dataset.editingModelId
+        || isAISettingsAddRowOpen(panelElement, "[data-ai-add-model-row]");
+};
+
 export const refreshAISettingsToolbarPanel = (vditor: IVditor) => {
     const aiItem = vditor.toolbar.elements["ai-settings"];
     if (!aiItem) return;
@@ -353,8 +368,8 @@ export const refreshAISettingsToolbarPanel = (vditor: IVditor) => {
     if (!panelElement || panelElement.style.display !== "block") return;
     const promptsEl = panelElement.querySelector("[data-ai-prompts]");
     const modelsEl = panelElement.querySelector("[data-ai-models]");
-    if (promptsEl) promptsEl.outerHTML = buildAIPromptsHTML();
-    if (modelsEl) modelsEl.outerHTML = buildAIModelsHTML();
+    if (promptsEl && !hasOpenAISettingsPromptForm(panelElement)) promptsEl.outerHTML = buildAIPromptsHTML();
+    if (modelsEl && !hasOpenAISettingsModelForm(panelElement)) modelsEl.outerHTML = buildAIModelsHTML();
 };
 
 export const refreshSettingsToolbarPanel = (vditor: IVditor) => {

@@ -1,4 +1,11 @@
-import { buildAIPromptsHTML, buildAIModelsHTML, nameFromUrl, SETTINGS_PANEL_CLASS } from "../ui/settingsPanel";
+import {
+    buildAIPromptsHTML,
+    buildAIModelsHTML,
+    hasOpenAISettingsModelForm,
+    hasOpenAISettingsPromptForm,
+    nameFromUrl,
+    SETTINGS_PANEL_CLASS,
+} from "../ui/settingsPanel";
 import { getEventName } from "../util/compatibility";
 import { MenuItem } from "./MenuItem";
 import { toggleSubMenu } from "./setToolbar";
@@ -23,6 +30,9 @@ export class AISettings extends MenuItem {
         this.element.appendChild(panelElement);
 
         actionBtn.addEventListener(getEventName(), (_event: Event) => {
+            if (hasOpenAISettingsPromptForm(panelElement) || hasOpenAISettingsModelForm(panelElement)) {
+                return;
+            }
             panelElement.innerHTML = this.buildPanelHTML();
         }, true);
 
