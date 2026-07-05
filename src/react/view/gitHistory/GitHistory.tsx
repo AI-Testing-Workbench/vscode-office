@@ -180,6 +180,7 @@ function GitHistoryView({
     const [batchConfirm, setBatchConfirm] = useState<{ kind: 'cherryPick' | 'revert'; commits: GitCommit[] } | null>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<HTMLDivElement>(null);
+    const bodyRef = useRef<HTMLDivElement>(null);
     const settingsOpenRef = useRef(settingsOpen);
     const { menu, showMenu, closeMenu } = useContextMenu();
     const menuContextRef = useRef<MenuContext | null>(null);
@@ -1606,7 +1607,7 @@ function GitHistoryView({
                 adaptiveColorMode={adaptiveColorMode}
                 onToggleColorMode={onToggleColorMode}
             />
-            <div className="git-graph-body">
+            <div className="git-graph-body" ref={bodyRef}>
                 <div className="git-graph-body-main">
                     <FindWidget
                         open={findOpen}
@@ -1753,7 +1754,7 @@ function GitHistoryView({
                 && commits[focusIndex] && (
                 <CommitDetailPopup
                     anchor={detailAnchor}
-                    containerRef={viewRef}
+                    containerRef={bodyRef}
                     repo={repo}
                     commit={commits[focusIndex]}
                     commitHash={commits[focusIndex].hash}
