@@ -499,6 +499,8 @@ interface IOptions {
     value?: string;
     /** 是否显示日志。默认值: false */
     debugger?: boolean;
+    /** 是否打印 WYSIWYG input SpinVditorDOM 前后的 HTML。默认值: false */
+    wysiwygInputPerf?: boolean;
     /** 编辑器总高度。默认值: 'auto' */
     height?: number | string;
     /** 编辑器最小高度 */
