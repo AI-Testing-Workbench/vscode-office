@@ -178,9 +178,10 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex: 0 1 auto;
     min-width: 0;
+    margin-left: 3px;
 }
 
 .git-graph-toolbar-actions {
@@ -189,6 +190,7 @@
     align-items: center;
     gap: 2px;
     flex: 0 0 auto;
+    margin-left: -6px;
 }
 
 .git-graph-icon-btn.git-graph-toolbar-btn-fetch.running:disabled {
@@ -434,6 +436,52 @@
 .vscode-dropdown-trigger:hover .vscode-dropdown-chevron,
 .vscode-dropdown.open .vscode-dropdown-trigger .vscode-dropdown-chevron {
     opacity: 1;
+}
+
+.vscode-dropdown.toolbar {
+    gap: 0;
+}
+
+.vscode-dropdown.toolbar .vscode-dropdown-trigger {
+    width: auto;
+    min-width: 0;
+    height: 26px;
+    padding: 0 5px 0 6px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--git-graph-muted);
+    font-size: 13px;
+}
+
+.vscode-dropdown.toolbar .vscode-dropdown-trigger:hover {
+    background: var(--git-graph-hover);
+    border-color: transparent;
+    color: var(--git-graph-fg);
+}
+
+.vscode-dropdown.toolbar.open .vscode-dropdown-trigger {
+    border-color: transparent;
+    background: transparent;
+    color: var(--git-graph-fg);
+}
+
+.vscode-dropdown.toolbar.has-selection .vscode-dropdown-trigger {
+    color: var(--git-graph-fg);
+}
+
+.vscode-dropdown.toolbar .vscode-dropdown-value {
+    flex: 0 0 auto;
+}
+
+.vscode-dropdown.toolbar .vscode-dropdown-chevron {
+    margin-left: 2px;
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+.vscode-dropdown.toolbar .vscode-dropdown-menu {
+    min-width: 180px;
 }
 
 .vscode-dropdown-menu {

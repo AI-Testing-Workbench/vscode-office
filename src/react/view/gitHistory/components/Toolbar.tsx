@@ -93,7 +93,9 @@ export default function Toolbar({
                     onChange={(v) => onBranchChange(typeof v === 'string' && v ? v : null)}
                 />
                 <VscodeDropdown
-                    label="Author:"
+                    label="Author"
+                    variant="toolbar"
+                    triggerLabel={selectedAuthor ? undefined : 'Author'}
                     options={authors.map((a) => ({ value: a, label: a }))}
                     value={selectedAuthor ?? ''}
                     allLabel="All"
