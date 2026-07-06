@@ -70,6 +70,7 @@ export default {
     normal: 'Normal',
     text: 'Plain Text',
     number: 'Number',
+    numberPlain: 'Number (Plain)',
     percent: 'Percent',
     rmb: 'RMB',
     usd: 'USD',

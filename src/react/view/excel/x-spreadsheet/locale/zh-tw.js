@@ -70,6 +70,7 @@ export default {
     normal: '一般',
     text: '文字',
     number: '數值',
+    numberPlain: '數值（無分隔）',
     percent: '百分比',
     rmb: '人民幣',
     usd: '美元',

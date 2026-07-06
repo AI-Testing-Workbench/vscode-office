@@ -55,6 +55,7 @@ export default {
     normal: 'Standaard',
     text: 'Tekst',
     number: 'Nummer',
+    numberPlain: 'Nummer (eenvoudig)',
     percent: 'Percentage',
     rmb: 'RMB',
     usd: 'USD',
