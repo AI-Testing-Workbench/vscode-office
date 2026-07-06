@@ -1,6 +1,6 @@
 import { TelemetryReporter } from '@vscode/extension-telemetry';
 import { env, ExtensionContext, workspace } from 'vscode';
-import { fileTypeFromPath } from './officeViewType';
+import { fileTypeFromPath, resolveOfficeViewType } from './officeViewType';
 
 /**
  * Application Insights connection string.
@@ -40,35 +40,48 @@ export class TelemetryService {
         return workspace.getConfiguration('vscode-office').get<boolean>('enableTelemetry', true);
     }
 
-    trackViewOpen(viewType: string, properties?: Record<string, string>): void {
+    private getCommonProperties(): Record<string, string> {
+        return {
+            app_name: env.appName,
+            language: env.language,
+        };
+    }
+
+    trackViewOpen(viewType: string, fileType?: string, properties?: Record<string, string>): void {
         if (!this.enabled()) {
             return;
         }
+        const rateLimitKey = fileType ?? viewType;
         const now = Date.now();
-        const lastSent = this.viewOpenLastSentByFileType.get(viewType);
+        const lastSent = this.viewOpenLastSentByFileType.get(rateLimitKey);
         if (lastSent !== undefined && now - lastSent < TelemetryService.VIEW_OPEN_INTERVAL_MS) {
             return;
         }
-        this.viewOpenLastSentByFileType.set(viewType, now);
+        this.viewOpenLastSentByFileType.set(rateLimitKey, now);
         this.reporter!.sendTelemetryEvent('view.open', {
             viewType,
+            ...(fileType ? { fileType } : {}),
             ...properties,
+            ...this.getCommonProperties(),
         });
     }
 
-    trackOfficeViewOpen(fsPath: string): void {
-        const ext = fileTypeFromPath(fsPath);
-        if (!ext) {
+    trackOfficeViewOpen(fsPath: string, route?: string, fileType?: string): void {
+        const viewType = resolveOfficeViewType(fsPath, route);
+        if (!viewType) {
             return;
         }
-        this.trackViewOpen(ext);
+        this.trackViewOpen(viewType, fileType || fileTypeFromPath(fsPath));
     }
 
     trackEvent(event: string, properties?: Record<string, string>): void {
         if (!this.enabled()) {
             return;
         }
-        this.reporter!.sendTelemetryEvent(event, properties);
+        this.reporter!.sendTelemetryEvent(event, {
+            ...properties,
+            ...this.getCommonProperties(),
+        });
     }
 
 }

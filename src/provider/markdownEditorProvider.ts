@@ -19,6 +19,7 @@ import {
     unregisterMarkdownWebview,
 } from '@/service/markdown/blockScroll';
 import { ViewerSettingsService } from '@/service/viewerSettingsService';
+import { fileTypeFromPath } from '@/service/officeViewType';
 import { parseWebviewResourceUri } from '@/common/webviewUri';
 
 function getRuntimePlatform(): string {
@@ -132,7 +133,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             ],
         }
         const handler = Handler.bind(webviewPanel, uri);
-        TelemetryService.get()?.trackViewOpen('markdown', this.getMarkdownTelemetryProps());
+        TelemetryService.get()?.trackViewOpen(
+            'markdown',
+            fileTypeFromPath(uri.fsPath),
+            this.getMarkdownTelemetryProps(),
+        );
         void this.handleMarkdown(document, handler, folderPath);
         handler.on('developerTool', () => vscode.commands.executeCommand('workbench.action.toggleDevTools'))
     }
