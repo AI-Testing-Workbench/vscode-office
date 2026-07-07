@@ -107,6 +107,122 @@ function cellText(cell) {
     .trim();
 }
 
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function borderSideToCss(side) {
+  if (!side || !side[0]) return null;
+  const [styleName, color] = side;
+  let width = '1px';
+  let lineStyle = 'solid';
+  if (styleName === 'medium') width = '2px';
+  else if (styleName === 'thick') width = '3px';
+  else if (styleName === 'dashed') lineStyle = 'dashed';
+  else if (styleName === 'dotted') lineStyle = 'dotted';
+  else if (styleName === 'double') lineStyle = 'double';
+  return `${width} ${lineStyle} ${color}`;
+}
+
+function styleToCss(style, defaultStyle) {
+  const parts = [];
+  const font = style.font || {};
+  const defaultFont = defaultStyle.font || {};
+  if (font.name && font.name !== defaultFont.name) {
+    parts.push(`font-family:${font.name}`);
+  }
+  if (font.size && font.size !== defaultFont.size) {
+    parts.push(`font-size:${font.size}pt`);
+  }
+  if (font.bold) parts.push('font-weight:bold');
+  if (font.italic) parts.push('font-style:italic');
+  if (style.color && style.color !== defaultStyle.color) {
+    parts.push(`color:${style.color}`);
+  }
+  if (style.bgcolor && style.bgcolor !== defaultStyle.bgcolor
+    && style.bgcolor !== '#ffffff' && style.bgcolor !== '#fff') {
+    parts.push(`background-color:${style.bgcolor}`);
+  }
+  const decorations = [];
+  if (style.underline) decorations.push('underline');
+  if (style.strike) decorations.push('line-through');
+  if (decorations.length > 0) {
+    parts.push(`text-decoration:${decorations.join(' ')}`);
+  }
+  if (style.align && style.align !== defaultStyle.align) {
+    parts.push(`text-align:${style.align}`);
+  }
+  if (style.valign && style.valign !== defaultStyle.valign) {
+    parts.push(`vertical-align:${style.valign}`);
+  }
+  if (style.textwrap) {
+    parts.push('white-space:pre-wrap');
+  }
+  if (style.border) {
+    const { border } = style;
+    const top = borderSideToCss(border.top);
+    const right = borderSideToCss(border.right);
+    const bottom = borderSideToCss(border.bottom);
+    const left = borderSideToCss(border.left);
+    if (top) parts.push(`border-top:${top}`);
+    if (right) parts.push(`border-right:${right}`);
+    if (bottom) parts.push(`border-bottom:${bottom}`);
+    if (left) parts.push(`border-left:${left}`);
+  }
+  return parts.join(';');
+}
+
+function formatCellHtml(text, style, defaultStyle, extraAttrs = '') {
+  const css = styleToCss(style, defaultStyle);
+  const styleAttr = css ? ` style="${css}"` : '';
+  const body = style.textwrap
+    ? escapeHtml(text)
+    : escapeHtml(text).replace(/\n/g, '<br>');
+  return `<td${extraAttrs}${styleAttr}>${body}</td>`;
+}
+
+/**
+ * Serialize a selected range to HTML table for system clipboard (Excel / WPS).
+ */
+export function formatHtmlClipboard(data, range) {
+  const {
+    sri, eri, sci, eci,
+  } = range;
+  const defaultStyle = data.defaultStyle();
+  const rows = [];
+
+  for (let ri = sri; ri <= eri; ri += 1) {
+    let rowHtml = '<tr>';
+    for (let ci = sci; ci <= eci; ci += 1) {
+      const merge = data.merges.getFirstIncludes(ri, ci);
+      if (merge && (merge.sri !== ri || merge.sci !== ci)) {
+        continue;
+      }
+      const style = data.getCellStyleOrDefault(ri, ci);
+      const text = data.getCellTextOrDefault(ri, ci);
+      let extraAttrs = '';
+      if (merge) {
+        const rowspan = Math.min(merge.eri, eri) - ri + 1;
+        const colspan = Math.min(merge.eci, eci) - ci + 1;
+        const attrs = [];
+        if (rowspan > 1) attrs.push(`rowspan="${rowspan}"`);
+        if (colspan > 1) attrs.push(`colspan="${colspan}"`);
+        if (attrs.length > 0) extraAttrs = ` ${attrs.join(' ')}`;
+      }
+      rowHtml += formatCellHtml(text, style, defaultStyle, extraAttrs);
+    }
+    rowHtml += '</tr>';
+    rows.push(rowHtml);
+  }
+
+  const table = `<table>${rows.join('')}</table>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${table}</body></html>`;
+}
+
 export function parseHtmlClipboard(html) {
   if (!html) return null;
   const container = document.createElement('div');

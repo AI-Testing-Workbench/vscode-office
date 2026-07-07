@@ -357,8 +357,100 @@ body {
   z-index: 1;
   overflow: visible;
 
-  img {
-    display: block;
+  &.editable {
+    .@{css-prefix}-sheet-image-item {
+      pointer-events: auto;
+      cursor: move;
+    }
+  }
+
+  .@{css-prefix}-sheet-image-item {
+    box-sizing: border-box;
+    pointer-events: none;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .@{css-prefix}-sheet-image-handle {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: rgb(33, 186, 69);
+      border: 1px solid #fff;
+      box-sizing: border-box;
+      pointer-events: auto;
+      display: none;
+      z-index: 1;
+
+      &.@{css-prefix}-sheet-image-handle-nw {
+        left: -3px;
+        top: -3px;
+        cursor: nwse-resize;
+      }
+
+      &.@{css-prefix}-sheet-image-handle-n {
+        left: 50%;
+        top: -3px;
+        margin-left: -3px;
+        cursor: ns-resize;
+      }
+
+      &.@{css-prefix}-sheet-image-handle-ne {
+        right: -3px;
+        top: -3px;
+        cursor: nesw-resize;
+      }
+
+      &.@{css-prefix}-sheet-image-handle-e {
+        right: -3px;
+        top: 50%;
+        margin-top: -3px;
+        cursor: ew-resize;
+      }
+
+      &.@{css-prefix}-sheet-image-handle-se {
+        right: -3px;
+        bottom: -3px;
+        cursor: nwse-resize;
+      }
+
+      &.@{css-prefix}-sheet-image-handle-s {
+        left: 50%;
+        bottom: -3px;
+        margin-left: -3px;
+        cursor: ns-resize;
+      }
+
+      &.@{css-prefix}-sheet-image-handle-sw {
+        left: -3px;
+        bottom: -3px;
+        cursor: nesw-resize;
+      }
+
+      &.@{css-prefix}-sheet-image-handle-w {
+        left: -3px;
+        top: 50%;
+        margin-top: -3px;
+        cursor: ew-resize;
+      }
+    }
+
+    &:hover,
+    &.dragging,
+    &.resizing {
+      outline: 2px dashed rgb(33, 186, 69);
+      outline-offset: -2px;
+
+      .@{css-prefix}-sheet-image-handle {
+        display: block;
+      }
+    }
   }
 }
 

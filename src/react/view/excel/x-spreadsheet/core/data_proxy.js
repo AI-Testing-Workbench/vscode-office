@@ -5,7 +5,7 @@ import Scroll from './scroll';
 import History from './history';
 import Clipboard from './clipboard';
 import { formatTsvRows, parseTsvRows } from './clipboard_text';
-import { parseHtmlClipboard } from './clipboard_html';
+import { formatHtmlClipboard, parseHtmlClipboard } from './clipboard_html';
 import AutoFilter from './auto_filter';
 import { Merges } from './merge';
 import helper from './helper';
@@ -651,19 +651,34 @@ export default class DataProxy {
 
     // Adding \n and why not adding \r\n is to support online office and client MS office and WPS
     copyText = formatTsvRows(copyText);
+    const copyHtml = formatHtmlClipboard(this, this.selector.range);
 
     // why used this
     // cuz http protocol will be blocked request clipboard by browser
     if (evt) {
       evt.clipboardData.clearData();
       evt.clipboardData.setData('text/plain', copyText);
+      evt.clipboardData.setData('text/html', copyHtml);
       evt.preventDefault();
     }
 
     // this need https protocol
     /* global navigator */
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(copyText).then(() => {}, () => {});
+      if (window.ClipboardItem) {
+        const htmlBlob = new Blob([copyHtml], { type: 'text/html' });
+        const textBlob = new Blob([copyText], { type: 'text/plain' });
+        navigator.clipboard.write([
+          new ClipboardItem({
+            'text/plain': textBlob,
+            'text/html': htmlBlob,
+          }),
+        ]).catch(() => {
+          navigator.clipboard.writeText(copyText).then(() => {}, () => {});
+        });
+      } else {
+        navigator.clipboard.writeText(copyText).then(() => {}, () => {});
+      }
     }
   }
 
@@ -984,6 +999,37 @@ export default class DataProxy {
       height,
       scroll,
     };
+  }
+
+  getFractionalCellFromSheetXY(sheetX, sheetY) {
+    const { cols, rows, exceptRowSet } = this;
+    const clampedX = Math.max(0, Math.min(sheetX, cols.totalWidth()));
+    const clampedY = Math.max(0, Math.min(sheetY, rows.totalHeight()));
+
+    let col = 0;
+    let x = 0;
+    for (let ci = 0; ci < cols.len; ci += 1) {
+      const cw = cols.getWidth(ci);
+      if (clampedX < x + cw || ci === cols.len - 1) {
+        col = cw > 0 ? ci + (clampedX - x) / cw : ci;
+        break;
+      }
+      x += cw;
+    }
+
+    let row = 0;
+    let y = 0;
+    for (let ri = 0; ri < rows.len; ri += 1) {
+      if (exceptRowSet.has(ri)) continue;
+      const rh = rows.getHeight(ri);
+      if (clampedY < y + rh || ri === rows.len - 1) {
+        row = rh > 0 ? ri + (clampedY - y) / rh : ri;
+        break;
+      }
+      y += rh;
+    }
+
+    return { col, row };
   }
 
   getRect(cellRange) {

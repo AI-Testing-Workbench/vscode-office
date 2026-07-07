@@ -385,6 +385,7 @@ function sheetReset() {
   horizontalScrollbarSet.call(this);
   sheetFreeze.call(this);
   table.render();
+  this.sheetImages.setEditable(this.data.settings.mode !== 'read');
   this.sheetImages.reset(this.data);
   toolbar.reset();
   selector.reset();
@@ -1245,6 +1246,9 @@ export default class Sheet {
     // selector
     this.selector = new Selector(data);
     this.sheetImages = new SheetImages();
+    this.sheetImages.setOnChange(() => {
+      this.trigger('change');
+    });
     this.overlayerCEl = h('div', `${cssPrefix}-overlayer-content`)
       .children(
         this.sheetImages.el,
