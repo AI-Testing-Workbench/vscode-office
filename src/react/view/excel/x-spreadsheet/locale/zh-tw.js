@@ -147,7 +147,7 @@ export default {
     exportOdsLabel: 'OpenDocument (.ods)',
     exportOdsDesc: '相容 LibreOffice / WPS',
     switchToLightMode: '切換至淺色模式',
-    switchToDarkMode: '切換至深色模式',
+    switchToDarkMode: '切換至自適應模式（跟隨 VS Code 主題）',
   },
   findReplace: {
     title: '尋找',

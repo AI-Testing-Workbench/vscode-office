@@ -147,7 +147,7 @@ export default {
     exportOdsLabel: 'OpenDocument (.ods)',
     exportOdsDesc: 'Compatible with LibreOffice / WPS',
     switchToLightMode: 'Switch to light mode',
-    switchToDarkMode: 'Switch to dark mode',
+    switchToDarkMode: 'Switch to adaptive mode (follow VS Code theme)',
   },
   findReplace: {
     title: 'Find',

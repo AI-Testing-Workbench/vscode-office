@@ -89,7 +89,7 @@ export default {
     exportOdsLabel: 'OpenDocument (.ods)',
     exportOdsDesc: 'Kompatibel mit LibreOffice / WPS',
     switchToLightMode: 'Zum hellen Modus wechseln',
-    switchToDarkMode: 'Zum dunklen Modus wechseln',
+    switchToDarkMode: 'Zum adaptiven Modus wechseln (VS Code-Theme folgen)',
   },
   findReplace: {
     title: 'Suchen',
