@@ -118,6 +118,7 @@ export default {
         renameBranch: '重命名分支',
         merge: '合并',
         mergeIntoCurrent: '合并到当前分支',
+        mergeIntoCurrentWithSource: '合并 {source} 到当前分支',
         copyCommitHash: '复制提交哈希',
         copyCommitMessage: '复制提交信息',
         resetBranch: '重置分支',

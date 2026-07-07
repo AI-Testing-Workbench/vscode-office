@@ -118,6 +118,7 @@ export default {
         renameBranch: 'Renomear branch',
         merge: 'Mesclar',
         mergeIntoCurrent: 'Mesclar na branch atual',
+        mergeIntoCurrentWithSource: 'Mesclar {source} na branch atual',
         copyCommitHash: 'Copiar hash do commit',
         copyCommitMessage: 'Copiar mensagem do commit',
         resetBranch: 'Redefinir branch',

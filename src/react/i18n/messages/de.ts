@@ -118,6 +118,7 @@ export default {
         renameBranch: 'Branch umbenennen',
         merge: 'Zusammenführen',
         mergeIntoCurrent: 'In aktuellen Branch zusammenführen',
+        mergeIntoCurrentWithSource: '{source} in aktuellen Branch zusammenführen',
         copyCommitHash: 'Commit-Hash kopieren',
         copyCommitMessage: 'Commit-Nachricht kopieren',
         resetBranch: 'Branch zurücksetzen',

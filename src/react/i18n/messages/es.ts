@@ -118,6 +118,7 @@ export default {
         renameBranch: 'Renombrar rama',
         merge: 'Fusionar',
         mergeIntoCurrent: 'Fusionar en la rama actual',
+        mergeIntoCurrentWithSource: 'Fusionar {source} en la rama actual',
         copyCommitHash: 'Copiar hash del commit',
         copyCommitMessage: 'Copiar mensaje del commit',
         resetBranch: 'Restablecer rama',

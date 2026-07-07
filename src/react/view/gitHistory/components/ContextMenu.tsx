@@ -6,6 +6,7 @@ import { getContextMenuIcon, getContextMenuIconColor } from '../contextMenu/cont
 export interface ContextMenuItem {
     id: string;
     label: string;
+    emphasis?: string;
     disabled?: boolean;
     separatorBefore?: boolean;
 }
@@ -21,6 +22,23 @@ interface ContextMenuProps {
     menu: ContextMenuState | null;
     onClose: () => void;
     onSelect: (id: string, position: { x: number; y: number }) => void;
+}
+
+function renderMenuLabel(label: string, emphasis?: string) {
+    if (!emphasis) {
+        return label;
+    }
+    const index = label.indexOf(emphasis);
+    if (index < 0) {
+        return label;
+    }
+    return (
+        <>
+            {label.slice(0, index)}
+            <span className="git-graph-menu-emphasis">{emphasis}</span>
+            {label.slice(index + emphasis.length)}
+        </>
+    );
 }
 
 export function ContextMenu({ menu, onClose, onSelect }: ContextMenuProps) {
@@ -80,7 +98,9 @@ export function ContextMenu({ menu, onClose, onSelect }: ContextMenuProps) {
                         <span className="git-graph-context-menu-icon" aria-hidden>
                             {icon ? <span className={`codicon codicon-${icon}`} /> : null}
                         </span>
-                        <span className="git-graph-context-menu-label">{item.label}</span>
+                        <span className="git-graph-context-menu-label">
+                            {renderMenuLabel(item.label, item.emphasis)}
+                        </span>
                     </button>
                 </li>
                 );

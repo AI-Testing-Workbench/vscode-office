@@ -2397,6 +2397,18 @@ body.git-graph-dialog-open {
     font-style: italic;
 }
 
+.git-graph-dialog-emphasis,
+.git-graph-menu-emphasis {
+    color: rgba(255, 255, 255, 0.88);
+    font-weight: 600;
+    font-style: normal;
+}
+
+.git-graph-context-menu-item:hover:not(:disabled) .git-graph-menu-emphasis,
+.git-graph-context-menu-item:focus-visible:not(:disabled) .git-graph-menu-emphasis {
+    color: rgba(255, 255, 255, 0.92);
+}
+
 .git-graph-create-branch-form,
 .git-graph-anchored-dialog-form {
     display: inline-table;

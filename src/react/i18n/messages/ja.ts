@@ -118,6 +118,7 @@ export default {
         renameBranch: 'ブランチの名前を変更',
         merge: 'マージ',
         mergeIntoCurrent: '現在のブランチにマージ',
+        mergeIntoCurrentWithSource: '{source} を現在のブランチにマージ',
         copyCommitHash: 'コミットハッシュをコピー',
         copyCommitMessage: 'コミットメッセージをコピー',
         resetBranch: 'ブランチをリセット',
