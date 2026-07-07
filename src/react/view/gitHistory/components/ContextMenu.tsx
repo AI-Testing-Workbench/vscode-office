@@ -70,6 +70,9 @@ export function ContextMenu({ menu, onClose, onSelect }: ContextMenuProps) {
 
     if (!menu) return null;
 
+    // In fixed light mode we rely on `.git-graph` CSS variables; if we portal to `body`,
+    // those variables are not defined and the menu can look transparent / unstyled.
+    const portalRoot = document.querySelector('.git-graph') ?? document.body;
     return createPortal(
         <ul
             ref={menuRef}
@@ -106,6 +109,6 @@ export function ContextMenu({ menu, onClose, onSelect }: ContextMenuProps) {
                 );
             })}
         </ul>,
-        document.body
+        portalRoot
     );
 }
