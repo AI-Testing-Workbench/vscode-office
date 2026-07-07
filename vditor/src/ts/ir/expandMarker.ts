@@ -1,5 +1,12 @@
 import {hasClosestByClassName, hasTopClosestByClassName} from "../util/hasClosest";
-import {focusWikilinkEditingRange, focusWikilinkEditingRangeFromDisplay, isRangeInWikilinkDisplay, setSelectionFocus} from "../util/selection";
+import {
+    escapeWikilinkRange,
+    focusWikilinkEditingRange,
+    focusWikilinkEditingRangeFromDisplay,
+    isRangeInWikilinkDisplay,
+    isRangeInWikilinkEditingArea,
+    setSelectionFocus,
+} from "../util/selection";
 
 const focusExpandedWikilink = (nodeElement: HTMLElement, range: Range, atEnd = true, fromOutside = false) => {
     const dataType = nodeElement.getAttribute("data-type");
@@ -11,8 +18,11 @@ const focusExpandedWikilink = (nodeElement: HTMLElement, range: Range, atEnd = t
             focusWikilinkEditingRangeFromDisplay(range, nodeElement);
             return true;
         }
-        setSelectionFocus(range);
-        return true;
+        if (isRangeInWikilinkEditingArea(nodeElement, range)) {
+            setSelectionFocus(range);
+            return true;
+        }
+        return false;
     }
     focusWikilinkEditingRange(range, nodeElement, atEnd);
     return true;
@@ -62,11 +72,17 @@ const previousIsNode = (range: Range) => {
 };
 
 export const expandMarker = (range: Range, root: HTMLElement) => {
+    let collapsedExpandedWikilink: HTMLElement | null = null;
     root.querySelectorAll(".vditor-ir__node--expand").forEach((item) => {
         if ((item as HTMLElement).classList.contains("vditor-code-block--cm")) {
             return;
         }
-        item.classList.remove("vditor-ir__node--expand");
+        const element = item as HTMLElement;
+        const dataType = element.getAttribute("data-type");
+        if (dataType === "wikilink" || dataType === "wikilink-embed") {
+            collapsedExpandedWikilink = element;
+        }
+        element.classList.remove("vditor-ir__node--expand");
     });
 
     const nodeElement = hasTopClosestByClassName(range.startContainer, "vditor-ir__node");
@@ -84,13 +100,15 @@ export const expandMarker = (range: Range, root: HTMLElement) => {
         nodeElement.classList.remove("vditor-ir__node--hidden");
         // https://github.com/Vanessa219/vditor/issues/615 safari中光标位置跳动
         if (!focusExpandedWikilink(nodeElement, range)) {
+            nodeElement.classList.remove("vditor-ir__node--expand");
+            escapeWikilinkRange(range, nodeElement);
             setSelectionFocus(range);
         }
         return;
     }
 
     const nextNode = nextIsNode(range);
-    if (nextNode) {
+    if (nextNode && nextNode !== collapsedExpandedWikilink) {
         if (nextNode.getAttribute("contenteditable") === "false") {
             return;
         }
@@ -101,7 +119,7 @@ export const expandMarker = (range: Range, root: HTMLElement) => {
     }
 
     const previousNode = previousIsNode(range);
-    if (previousNode) {
+    if (previousNode && previousNode !== collapsedExpandedWikilink) {
         if (previousNode.getAttribute("contenteditable") === "false") {
             return;
         }

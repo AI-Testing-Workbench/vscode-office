@@ -354,6 +354,55 @@ export const isRangeInWikilinkDisplay = (wikilink: HTMLElement, range: Range) =>
     return false;
 };
 
+const isRangeInWikilinkSource = (wikilink: HTMLElement, range: Range) => {
+    const source = getWikilinkSourceElement(wikilink) || wikilink.querySelector(".vditor-wikilink__source");
+    if (!source) {
+        return false;
+    }
+    if (source.contains(range.startContainer)) {
+        return true;
+    }
+    if (range.startContainer === wikilink) {
+        const child = wikilink.childNodes[range.startOffset];
+        return !!child && (source === child || source.contains(child));
+    }
+    return false;
+};
+
+const isRangeInWikilinkMarker = (wikilink: HTMLElement, range: Range) => {
+    const markers = wikilink.querySelectorAll(".vditor-ir__marker");
+    for (let i = 0; i < markers.length; i++) {
+        if (markers[i].contains(range.startContainer)) {
+            return true;
+        }
+    }
+    if (range.startContainer === wikilink) {
+        const child = wikilink.childNodes[range.startOffset];
+        return child instanceof HTMLElement && child.classList.contains("vditor-ir__marker");
+    }
+    return false;
+};
+
+export const isRangeInWikilinkEditingArea = (wikilink: HTMLElement, range: Range) => {
+    return isRangeInWikilinkSource(wikilink, range) || isRangeInWikilinkMarker(wikilink, range);
+};
+
+export const escapeWikilinkRange = (range: Range, wikilink: HTMLElement) => {
+    if (range.startContainer === wikilink) {
+        if (range.startOffset > wikilink.childNodes.length / 2) {
+            range.setStartAfter(wikilink);
+        } else {
+            range.setStartBefore(wikilink);
+        }
+        range.collapse(true);
+        return;
+    }
+    if (wikilink.contains(range.startContainer)) {
+        range.setStartAfter(wikilink);
+        range.collapse(true);
+    }
+};
+
 export const focusWikilinkEditingRangeFromDisplay = (range: Range, wikilink: HTMLElement) => {
     const source = getWikilinkSourceElement(wikilink);
     const display = wikilink.querySelector(".vditor-wikilink__display");
