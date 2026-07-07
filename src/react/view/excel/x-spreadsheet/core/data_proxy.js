@@ -356,6 +356,25 @@ function setStyleBorders({ mode, style, color }) {
   }
 }
 
+function getScrollRowIndex(y) {
+  const { rows, exceptRowSet, freeze } = this;
+  const [fri] = freeze;
+  const [ri, top] = helper.rangeReduceIf(fri, rows.len, 0, 0, y, (i) => {
+    if (exceptRowSet.has(i)) return 0;
+    return rows.getHeight(i);
+  });
+  if (ri <= fri) return fri;
+  return top < y ? ri - 1 : Math.max(fri, ri - 1);
+}
+
+function getScrollColIndex(x) {
+  const { cols, freeze } = this;
+  const [, fci] = freeze;
+  const [ci, left] = helper.rangeReduceIf(fci, cols.len, 0, 0, x, i => cols.getWidth(i));
+  if (ci <= fci) return fci;
+  return left < x ? ci - 1 : Math.max(fci, ci - 1);
+}
+
 function getCellRowByY(y, scrollOffsety) {
   const { rows } = this;
   const fsh = this.freezeTotalHeight();
@@ -1239,36 +1258,26 @@ export default class DataProxy {
   }
 
   scrollx(x, cb) {
-    const { scroll, freeze, cols } = this;
-    const [, fci] = freeze;
-    const [
-      ci, left, width,
-    ] = helper.rangeReduceIf(fci, cols.len, 0, 0, x, i => cols.getWidth(i));
-    // console.log('fci:', fci, ', ci:', ci);
-    let x1 = left;
-    if (x > 0) x1 += width;
+    const { scroll, cols } = this;
+    const contentWidth = cols.totalWidth();
+    const maxX = Math.max(0, contentWidth - this.viewWidth());
+    const x1 = Math.max(0, Math.min(x, maxX));
     if (scroll.x !== x1) {
-      scroll.ci = x > 0 ? ci : 0;
       scroll.x = x1;
+      scroll.ci = getScrollColIndex.call(this, x1);
       cb();
     }
   }
 
   scrolly(y, cb) {
-    const { scroll, freeze, rows, exceptRowSet } = this;
-    const [fri] = freeze;
-    const [
-      ri, top, height,
-    ] = helper.rangeReduceIf(fri, rows.len, 0, 0, y, (i) => {
-      if (exceptRowSet.has(i)) return 0;
-      return rows.getHeight(i);
-    });
-    let y1 = top;
-    if (y > 0) y1 += height;
-    // console.log('ri:', ri, ' ,y:', y1);
+    const { scroll, rows } = this;
+    const erth = this.exceptRowTotalHeight(0, -1);
+    const contentHeight = rows.totalHeight() - erth;
+    const maxY = Math.max(0, contentHeight - this.viewHeight());
+    const y1 = Math.max(0, Math.min(y, maxY));
     if (scroll.y !== y1) {
-      scroll.ri = y > 0 ? ri : 0;
       scroll.y = y1;
+      scroll.ri = getScrollRowIndex.call(this, y1);
       cb();
     }
   }
@@ -1484,6 +1493,11 @@ export default class DataProxy {
     if (ri <= 0) [ri] = freeze;
     if (ci <= 0) [, ci] = freeze;
 
+    const partialRowOffset = scroll.y - rows.sumHeight(0, ri, exceptRowSet);
+    const partialColOffset = scroll.x - cols.sumWidth(0, ci);
+    const viewH = this.viewHeight() + Math.max(0, partialRowOffset);
+    const viewW = this.viewWidth() + Math.max(0, partialColOffset);
+
     let [x, y] = [0, 0];
     let [eri, eci] = [rows.len, cols.len];
     for (let i = ri; i < rows.len; i += 1) {
@@ -1491,12 +1505,12 @@ export default class DataProxy {
         y += rows.getHeight(i);
         eri = i;
       }
-      if (y > this.viewHeight()) break;
+      if (y > viewH) break;
     }
     for (let j = ci; j < cols.len; j += 1) {
       x += cols.getWidth(j);
       eci = j;
-      if (x > this.viewWidth()) break;
+      if (x > viewW) break;
     }
     // console.log(ri, ci, eri, eci, x, y);
     return new CellRange(ri, ci, eri, eci, x, y);

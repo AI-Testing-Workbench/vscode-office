@@ -717,24 +717,30 @@ function editorSet() {
 }
 
 function verticalScrollbarMove(distance) {
-  const { data, table, selector } = this;
+  const { data, table, selector, verticalScrollbar } = this;
   data.scrolly(distance, () => {
     selector.resetBRLAreaOffset();
     editorSetOffset.call(this);
     table.render();
     sheetImagesUpdate.call(this);
   });
+  if (data.scroll.y !== distance) {
+    verticalScrollbar.move({ top: data.scroll.y });
+  }
   checkAndExpandViewRows(this);
 }
 
 function horizontalScrollbarMove(distance) {
-  const { data, table, selector } = this;
+  const { data, table, selector, horizontalScrollbar } = this;
   data.scrollx(distance, () => {
     selector.resetBRTAreaOffset();
     editorSetOffset.call(this);
     table.render();
     sheetImagesUpdate.call(this);
   });
+  if (data.scroll.x !== distance) {
+    horizontalScrollbar.move({ left: data.scroll.x });
+  }
 }
 
 function rowResizerFinished(cRect, distance) {
