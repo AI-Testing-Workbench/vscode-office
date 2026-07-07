@@ -50,6 +50,7 @@ Shortcuts: Based on [shortcut.md](shortcut.md), plus:
 - Edit hyperlink: `Alt+Enter` / `^ Enter`
 - Set CodeMirror language: `Alt+Enter` / `^ Enter`
 - Edit in VS Code: `Ctrl Alt E` / `⌘ ^ E`
+- Paste as plain text: `Ctrl+Shift+V` / `⌘ ⇧ V`
 
 ## Other features
 
