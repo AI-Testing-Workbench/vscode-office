@@ -173,7 +173,6 @@ function overlayerMousezoom(evt) {
   verticalScrollbarSet.call(this);
   horizontalScrollbarSet.call(this);
   const ratio = data.getZoomScale() / oldScale;
-  table.autoHeightsComputed = false;
   this.horizontalScrollbar.move({ left: data.scroll.x * ratio });
   this.verticalScrollbar.move({ top: data.scroll.y * ratio });
   table.render();

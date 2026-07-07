@@ -4,23 +4,27 @@ import Suggest from './suggest';
 import Datepicker from './datepicker';
 import { cssPrefix } from '../config';
 import { getFontSizePxByPt } from '../core/font';
-import { resolveExcelCellColor } from '../../theme';
+import { resolveExcelCellBg, resolveExcelCellColor } from '../../theme';
 // import { mouseMoveUp } from '../event';
 
-const FORMULA_MIN_WIDTH = 300;
-const FORMULA_MIN_HEIGHT = 80;
+const EDITOR_CELL_HORIZONTAL_PADDING = 20;
+// editor-area uses border-box; 2px border on top and bottom
+const EDITOR_AREA_BORDER_INSET = 4;
 
-// area is border-box (width/height = cell dimensions), border 2px each side → content = cellHeight - 4
-function applyVerticalCenter(editor, fontSizePt) {
+function applyTextareaLayout(editor, fontSizePt) {
   const { textEl, areaOffset } = editor;
   if (!areaOffset) return;
+  editor.editorFontSizePt = fontSizePt;
   const { height } = areaOffset;
   const sizePx = getFontSizePxByPt(fontSizePt ?? 11);
   const lineH = sizePx + 2;
+  const contentHeight = height - EDITOR_AREA_BORDER_INSET;
+  textEl.css('box-sizing', 'border-box');
   textEl.css('line-height', `${lineH}px`);
-  const paddingTop = Math.max(0, Math.round((height - 4 - lineH) / 2));
+  textEl.css('height', `${contentHeight}px`);
+  const paddingTop = Math.max(0, Math.round((contentHeight - lineH) / 2));
   textEl.css('padding-top', `${paddingTop}px`);
-  textEl.css('height', `${height - 4 - paddingTop}px`);
+  textEl.css('padding-bottom', '0');
 }
 
 function buildEditorFontCss(font, defaultFontName = 'Arial') {
@@ -35,34 +39,28 @@ function buildEditorFontCss(font, defaultFontName = 'Arial') {
 }
 
 function resetTextareaSize() {
-  const { inputText } = this;
-  if (!/^\s*$/.test(inputText)) {
-    const {
-      textlineEl, textEl, areaOffset,
-    } = this;
-    const isFormula = inputText.trimStart().startsWith('=');
-    const txts = inputText.split('\n');
-    const maxTxtSize = Math.max(...txts.map(it => it.length));
-    const tlOffset = textlineEl.offset();
-    const fontWidth = tlOffset.width / inputText.length;
-    const tlineWidth = (maxTxtSize + 1) * fontWidth + 5;
-    const maxWidth = this.viewFn().width - areaOffset.left - fontWidth;
-    let h1 = txts.length;
-    if (tlineWidth > areaOffset.width || (isFormula && FORMULA_MIN_WIDTH > areaOffset.width)) {
-      let twidth = Math.max(tlineWidth, isFormula ? FORMULA_MIN_WIDTH : 0);
-      if (twidth > maxWidth) {
-        twidth = maxWidth;
-        h1 += parseInt(tlineWidth / maxWidth, 10);
-        h1 += (tlineWidth % maxWidth) > 0 ? 1 : 0;
-      }
-      textEl.css('width', `${twidth}px`);
+  const {
+    areaEl, areaOffset, suggest, suggestPosition, textEl,
+  } = this;
+  if (!areaOffset) return;
+
+  window.requestAnimationFrame(() => {
+    if (!this.areaOffset || !suggest) return;
+    const textarea = textEl.el;
+    const lineCount = textarea.value.split('\n').length;
+    if (lineCount > 1) {
+      textEl.css('padding-top', '0');
+    } else {
+      applyTextareaLayout(this, this.editorFontSizePt ?? 11);
     }
-    h1 *= this.rowHeight;
-    const minH = isFormula ? FORMULA_MIN_HEIGHT : 0;
-    if (h1 > areaOffset.height || minH > areaOffset.height) {
-      textEl.css('height', `${Math.max(h1, minH)}px`);
+    if (textarea.scrollHeight > textarea.clientHeight + 1) {
+      textEl.css('padding-top', '0');
     }
-  }
+    textEl.css('overflow-y', textarea.scrollHeight > textarea.clientHeight + 1 ? 'auto' : 'hidden');
+    const sOffset = { left: 0 };
+    sOffset[suggestPosition || 'top'] = areaEl.offset().height;
+    suggest.setOffset(sOffset);
+  });
 }
 
 function insertText({ target }, itxt) {
@@ -263,6 +261,7 @@ export default class Editor {
     } = this;
     if (offset) {
       this.areaOffset = offset;
+      this.suggestPosition = suggestPosition;
       const {
         left, top, width, height, l, t,
       } = offset;
@@ -278,12 +277,14 @@ export default class Editor {
         elOffset.left = freeze.w;
       }
       el.offset(elOffset);
-      areaEl.offset({ left: left - elOffset.left, top: top - elOffset.top, width, height });
-      textEl.offset({ width: width - 20, height: height - 4 });
-      applyVerticalCenter(this, 11);
-      const sOffset = { left: 0 };
-      sOffset[suggestPosition] = height;
-      suggest.setOffset(sOffset);
+      areaEl.offset({ left: left - elOffset.left, top: top - elOffset.top, width });
+      areaEl.css('height', `${height}px`);
+      areaEl.css('min-height', `${height}px`);
+      areaEl.css('overflow', 'hidden');
+      textEl.offset({ width: width - EDITOR_CELL_HORIZONTAL_PADDING });
+      textEl.cssRemoveKeys('min-height');
+      applyTextareaLayout(this, 11);
+      resetTextareaSize.call(this);
       suggest.hide();
     }
   }
@@ -325,7 +326,7 @@ export default class Editor {
   }
 
   applyCellStyle(cellStyle) {
-    const { textEl, textlineEl } = this;
+    const { textEl, textlineEl, areaEl } = this;
     if (!cellStyle) return;
     const font = cellStyle.font;
     if (font) {
@@ -334,10 +335,13 @@ export default class Editor {
       textEl.css('font', fontCss);
       textlineEl.css('font', fontCss);
       textlineEl.css('line-height', lineHeight);
-      applyVerticalCenter(this, font.size ?? 11);
+      applyTextareaLayout(this, font.size ?? 11);
+      resetTextareaSize.call(this);
     }
     const color = resolveExcelCellColor(cellStyle.color);
     textEl.css('color', color);
     textlineEl.css('color', color);
+    areaEl.css('background-color', resolveExcelCellBg(cellStyle.bgcolor));
+    textEl.css('background-color', 'transparent');
   }
 }

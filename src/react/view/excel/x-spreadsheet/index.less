@@ -458,21 +458,27 @@ body {
     pointer-events: auto;
     padding: 0 8px;
     background-color: white;
+    overflow: hidden;
 
     textarea {
-      box-sizing: content-box;
+      box-sizing: border-box;
       border: none;
       padding: 0;
       outline: none;
       resize: none;
       text-align: start;
-      overflow-y: auto;
+      overflow: hidden;
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
       display: block;
       color: black;
       white-space: normal;
       word-wrap: break-word;
       margin: 0;
-      max-width: 400px;
+      max-height: 50vh;
       text-shadow: 0 0 0.35px currentcolor;
     }
 

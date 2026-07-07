@@ -12,68 +12,6 @@ import { getExcelThemeColor, resolveExcelCellBg, resolveExcelCellColor } from '.
 // gobal var
 const cellPaddingWidth = 10;
 
-function computeAutoRowHeights(data, ctx) {
-  const { rows, cols, styles } = data;
-  const defaultStyle = data.defaultStyle();
-  const defaultFontName = (defaultStyle.font && defaultStyle.font.name) || 'sans-serif';
-  const defaultFontSizePt = (defaultStyle.font && defaultStyle.font.size) || 11;
-
-  rows.each((ri, row) => {
-    if (!row || !row.cells) return;
-    let maxNeededHeight = 0;
-
-    Object.keys(row.cells).forEach((ci) => {
-      const cell = row.cells[ci];
-      if (!cell || !cell.text) return;
-
-      const style = cell.style != null ? styles[cell.style] : null;
-      const hasNewline = `${cell.text}`.includes('\n');
-      const needsWrap = (style && style.textwrap) || hasNewline;
-      if (!needsWrap) return;
-
-      const rindex = parseInt(ri, 10);
-      const cindex = parseInt(ci, 10);
-
-      // skip non-origin merge cells
-      const merge = data.merges && data.merges.getFirstIncludes(rindex, cindex);
-      if (merge && (merge.sri !== rindex || merge.sci !== cindex)) return;
-
-      const colWidth = cols.getWidth(cindex);
-      const innerWidth = colWidth - cellPaddingWidth * 2 - 2;
-
-      const fontName = (style && style.font && style.font.name) || defaultFontName;
-      const fontSizePt = (style && style.font && style.font.size) || defaultFontSizePt;
-      const fontSizePx = getFontSizePxByPt(fontSizePt);
-      const bold = (style && style.font && style.font.bold) ? 'bold' : '';
-      const italic = (style && style.font && style.font.italic) ? 'italic' : '';
-      ctx.font = `${italic} ${bold} ${npx(fontSizePx)}px '${fontName}'`.trim();
-
-      const lines = `${cell.text}`.split('\n');
-      let lineCount = 0;
-      lines.forEach((line) => {
-        const lineWidth = ctx.measureText(line).width;
-        const innerWidthPx = npx(innerWidth);
-        if (innerWidthPx > 0 && lineWidth > innerWidthPx) {
-          lineCount += Math.ceil(lineWidth / innerWidthPx);
-        } else {
-          lineCount += 1;
-        }
-      });
-
-      const neededHeight = lineCount * (fontSizePx + 2) + cellPaddingWidth * 2 + 2;
-      if (neededHeight > maxNeededHeight) maxNeededHeight = neededHeight;
-    });
-
-    if (maxNeededHeight > 0) {
-      const rindex = parseInt(ri, 10);
-      const currentHeight = rows.getHeight(rindex);
-      if (maxNeededHeight > currentHeight) {
-        rows.setHeight(rindex, Math.ceil(maxNeededHeight));
-      }
-    }
-  });
-}
-
 function tableFixedHeaderCleanStyle() {
   return { fillStyle: getExcelThemeColor('--excel-header-bg', '#f4f5f8') };
 }
@@ -385,17 +323,12 @@ class Table {
 
   resetData(data) {
     this.data = data;
-    this.autoHeightsComputed = false;
     this.render();
   }
 
   render() {
     // resize canvas
     const { data } = this;
-    if (!this.autoHeightsComputed) {
-      computeAutoRowHeights(data, this.draw.ctx);
-      this.autoHeightsComputed = true;
-    }
     const { rows, cols } = data;
     // fixed width of header
     const fw = cols.indexWidth;
