@@ -275,6 +275,104 @@ const getWikilinkSourceElement = (wikilink: HTMLElement): HTMLElement | null => 
     return null;
 };
 
+const stripZwsp = (text: string) => text.replace(/\u200b/g, "");
+
+const getTextOffsetInElement = (element: HTMLElement, range: Range) => {
+    const preRange = document.createRange();
+    preRange.selectNodeContents(element);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    return stripZwsp(preRange.toString()).length;
+};
+
+const mapWikilinkDisplayOffsetToSource = (displayText: string, sourceText: string, displayOffset: number) => {
+    const display = stripZwsp(displayText);
+    const source = stripZwsp(sourceText);
+    const boundedDisplayOffset = Math.max(0, Math.min(displayOffset, display.length));
+    if (display === source) {
+        return boundedDisplayOffset;
+    }
+    const pipeIndex = source.indexOf("|");
+    if (pipeIndex >= 0) {
+        const alias = source.substring(pipeIndex + 1);
+        if (alias === display) {
+            return Math.min(pipeIndex + 1 + boundedDisplayOffset, source.length);
+        }
+        const dest = source.substring(0, pipeIndex);
+        if (dest === display) {
+            return boundedDisplayOffset;
+        }
+    }
+    if (source.startsWith(display)) {
+        return boundedDisplayOffset;
+    }
+    return source.length;
+};
+
+const setRangeAtStrippedTextOffset = (element: HTMLElement, range: Range, targetOffset: number) => {
+    let charIndex = 0;
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+        const textNode = walker.currentNode as Text;
+        const text = textNode.textContent || "";
+        for (let i = 0; i < text.length; i++) {
+            if (text.charAt(i) === Constants.ZWSP) {
+                continue;
+            }
+            if (charIndex === targetOffset) {
+                range.setStart(textNode, i);
+                range.collapse(true);
+                return true;
+            }
+            charIndex++;
+        }
+    }
+    let lastText: Text | null = null;
+    const lastWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    while (lastWalker.nextNode()) {
+        lastText = lastWalker.currentNode as Text;
+    }
+    if (lastText) {
+        range.setStart(lastText, lastText.textContent?.length || 0);
+        range.collapse(true);
+        return true;
+    }
+    return false;
+};
+
+export const isRangeInWikilinkDisplay = (wikilink: HTMLElement, range: Range) => {
+    const display = wikilink.querySelector(".vditor-wikilink__display");
+    if (!display) {
+        return false;
+    }
+    if (display.contains(range.startContainer)) {
+        return true;
+    }
+    if (range.startContainer === wikilink) {
+        const child = wikilink.childNodes[range.startOffset];
+        return !!child && (display === child || display.contains(child));
+    }
+    return false;
+};
+
+export const focusWikilinkEditingRangeFromDisplay = (range: Range, wikilink: HTMLElement) => {
+    const source = getWikilinkSourceElement(wikilink);
+    const display = wikilink.querySelector(".vditor-wikilink__display");
+    if (!source || !display) {
+        focusWikilinkEditingRange(range, wikilink);
+        return;
+    }
+    const displayOffset = getTextOffsetInElement(display as HTMLElement, range);
+    const sourceOffset = mapWikilinkDisplayOffsetToSource(
+        display.textContent || "",
+        source.textContent || "",
+        displayOffset,
+    );
+    if (!setRangeAtStrippedTextOffset(source, range, sourceOffset)) {
+        focusInlineNodeTextRange(range, wikilink, sourceOffset > 0);
+    }
+    setSelectionFocus(range);
+};
+
 export const focusWikilinkEditingRange = (range: Range, wikilink: HTMLElement, atEnd = true) => {
     focusInlineNodeTextRange(range, wikilink, atEnd);
     setSelectionFocus(range);

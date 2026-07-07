@@ -1,12 +1,20 @@
 import {hasClosestByClassName, hasTopClosestByClassName} from "../util/hasClosest";
-import {focusWikilinkEditingRange, setSelectionFocus} from "../util/selection";
+import {focusWikilinkEditingRange, focusWikilinkEditingRangeFromDisplay, isRangeInWikilinkDisplay, setSelectionFocus} from "../util/selection";
 
-const focusExpandedWikilink = (nodeElement: HTMLElement, range: Range) => {
+const focusExpandedWikilink = (nodeElement: HTMLElement, range: Range, atEnd = true, fromOutside = false) => {
     const dataType = nodeElement.getAttribute("data-type");
     if (dataType !== "wikilink" && dataType !== "wikilink-embed") {
         return false;
     }
-    focusWikilinkEditingRange(range, nodeElement);
+    if (!fromOutside) {
+        if (isRangeInWikilinkDisplay(nodeElement, range)) {
+            focusWikilinkEditingRangeFromDisplay(range, nodeElement);
+            return true;
+        }
+        setSelectionFocus(range);
+        return true;
+    }
+    focusWikilinkEditingRange(range, nodeElement, atEnd);
     return true;
 };
 
@@ -88,7 +96,7 @@ export const expandMarker = (range: Range, root: HTMLElement) => {
         }
         nextNode.classList.add("vditor-ir__node--expand");
         nextNode.classList.remove("vditor-ir__node--hidden");
-        focusExpandedWikilink(nextNode, range);
+        focusExpandedWikilink(nextNode, range, false, true);
         return;
     }
 
@@ -99,7 +107,7 @@ export const expandMarker = (range: Range, root: HTMLElement) => {
         }
         previousNode.classList.add("vditor-ir__node--expand");
         previousNode.classList.remove("vditor-ir__node--hidden");
-        focusExpandedWikilink(previousNode, range);
+        focusExpandedWikilink(previousNode, range, true, true);
         return;
     }
 };
