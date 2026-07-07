@@ -387,6 +387,11 @@ function paste(what, evt) {
   if (data.settings.mode === 'read') return;
   if (data.clipboard.isClear()) {
     if (evt) {
+      const html = what === 'all' ? evt.clipboardData.getData('text/html') : '';
+      if (html && this.data.pasteFromHtml(html)) {
+        sheetReset.call(this);
+        return;
+      }
       const cdata = evt.clipboardData.getData('text/plain');
       this.data.pasteFromText(cdata);
       sheetReset.call(this);
@@ -400,6 +405,11 @@ function paste(what, evt) {
   } else if (data.paste(what, msg => xtoast('Tip', msg))) {
     sheetReset.call(this);
   } else if (evt) {
+    const html = what === 'all' ? evt.clipboardData.getData('text/html') : '';
+    if (html && this.data.pasteFromHtml(html)) {
+      sheetReset.call(this);
+      return;
+    }
     const cdata = evt.clipboardData.getData('text/plain');
     this.data.pasteFromText(cdata);
     sheetReset.call(this);

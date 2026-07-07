@@ -5,6 +5,7 @@ import Scroll from './scroll';
 import History from './history';
 import Clipboard from './clipboard';
 import { formatTsvRows, parseTsvRows } from './clipboard_text';
+import { parseHtmlClipboard } from './clipboard_html';
 import AutoFilter from './auto_filter';
 import { Merges } from './merge';
 import helper from './helper';
@@ -698,6 +699,49 @@ export default class DataProxy {
         this.revalidateAll();
       });
     }
+  }
+
+  pasteFromHtml(html) {
+    const parsed = parseHtmlClipboard(html);
+    if (!parsed || parsed.rows.length <= 0) return false;
+    const { rows, selector } = this;
+    this.changeData(() => {
+      const { sri, sci } = selector.range;
+      const height = parsed.rows.length;
+      const width = Math.max(...parsed.rows.map(row => row.length));
+      const pasteRange = new CellRange(sri, sci, sri + height - 1, sci + width - 1);
+      this.merges.deleteWithin(pasteRange);
+      pasteRange.each((ri, ci) => {
+        rows.deleteCell(getDataRowIndex(this, ri), ci, 'merge');
+      });
+      parsed.rows.forEach((row, i) => {
+        const ri = getDataRowIndex(this, sri + i);
+        row.forEach((cell, j) => {
+          const ci = sci + j;
+          if (cell.covered) {
+            rows.deleteCell(ri, ci, 'all');
+            return;
+          }
+          const nextCell = { text: cell.text };
+          if (cell.style) {
+            const styleIndex = this.addStyle(cell.style);
+            if (styleIndex !== undefined) nextCell.style = styleIndex;
+          }
+          if (cell.merge) nextCell.merge = cell.merge;
+          rows.setCell(ri, ci, nextCell);
+        });
+      });
+      parsed.merges.forEach((merge) => {
+        this.merges.add(new CellRange(
+          sri + merge.sri,
+          sci + merge.sci,
+          sri + merge.eri,
+          sci + merge.eci,
+        ));
+      });
+      this.revalidateAll();
+    });
+    return true;
   }
 
   autofill(cellRange, what, error = () => {}) {

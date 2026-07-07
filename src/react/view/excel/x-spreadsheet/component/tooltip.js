@@ -4,9 +4,7 @@ import { bind } from './event';
 import { cssPrefix } from '../config';
 
 export default function tooltip(html, target) {
-  if (target.classList.contains('active')) {
-    return;
-  }
+  document.querySelectorAll(`.${cssPrefix}-tooltip`).forEach(el => el.remove());
   const {
     left, top, width, height,
   } = target.getBoundingClientRect();
