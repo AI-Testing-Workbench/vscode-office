@@ -6,21 +6,34 @@ class Rows {
     this._ = {};
     this.len = len;
     // default row height
-    this.height = height;
+    this.baseHeight = height;
+    this.zoomScale = 1;
+  }
+
+  get height() {
+    return Math.max(1, Math.round(this.baseHeight * this.zoomScale));
+  }
+
+  set height(v) {
+    this.baseHeight = v;
+  }
+
+  setZoomScale(scale) {
+    this.zoomScale = scale;
   }
 
   getHeight(ri) {
     if (this.isHide(ri)) return 0;
     const row = this.get(ri);
     if (row && row.height != null) {
-      return row.height;
+      return Math.max(1, Math.round(row.height * this.zoomScale));
     }
     return this.height;
   }
 
   setHeight(ri, v) {
     const row = this.getOrNew(ri);
-    row.height = v;
+    row.height = Math.max(1, Math.round(v / this.zoomScale));
   }
 
   unhide(idx) {

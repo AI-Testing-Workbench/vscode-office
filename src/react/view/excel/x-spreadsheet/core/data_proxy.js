@@ -116,6 +116,8 @@ const defaultSettings = {
 
 const toolbarHeight = 41;
 const bottombarHeight = 41;
+const MIN_ZOOM_SCALE = 0.5;
+const MAX_ZOOM_SCALE = 2;
 
 function syncCellMergesFromRanges() {
   const { rows, cols, merges } = this;
@@ -431,6 +433,9 @@ export default class DataProxy {
     this.exceptRowSet = new Set();
     this.sortedRowMap = new Map();
     this.unsortedRowMap = new Map();
+    this.zoomScale = 1;
+    this.rows.setZoomScale(this.zoomScale);
+    this.cols.setZoomScale(this.zoomScale);
   }
 
   addValidation(mode, ref, validator) {
@@ -925,8 +930,8 @@ export default class DataProxy {
     let width;
     let height;
     if (anchor.width != null && anchor.height != null) {
-      width = anchor.width;
-      height = anchor.height;
+      width = anchor.width * this.zoomScale;
+      height = anchor.height * this.zoomScale;
     } else if (anchor.brCol != null && anchor.brRow != null) {
       const brCi = Math.floor(anchor.brCol);
       const brRi = Math.floor(anchor.brRow);
@@ -1566,6 +1571,19 @@ export default class DataProxy {
 
   defaultStyle() {
     return this.settings.style;
+  }
+
+  getZoomScale() {
+    return this.zoomScale || 1;
+  }
+
+  setZoomScale(scale) {
+    const nextScale = Math.max(MIN_ZOOM_SCALE, Math.min(MAX_ZOOM_SCALE, scale));
+    if (nextScale === this.zoomScale) return false;
+    this.zoomScale = nextScale;
+    this.rows.setZoomScale(nextScale);
+    this.cols.setZoomScale(nextScale);
+    return true;
   }
 
   addStyle(nstyle) {

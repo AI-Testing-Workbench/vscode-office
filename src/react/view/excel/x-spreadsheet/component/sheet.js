@@ -26,6 +26,8 @@ import { CellRange } from '../core/cell_range';
 const SCROLL_EXPAND_THRESHOLD = 40;
 const HYPERLINK_CLICK_THRESHOLD = 5;
 const VIEW_EXPAND_COOLDOWN_MS = 250;
+const WHEEL_ZOOM_STEP = 0.1;
+const WHEEL_ZOOM_THROTTLE_MS = 120;
 
 function tryExpandRows(sheet, data) {
   const now = Date.now();
@@ -137,6 +139,10 @@ function overlayerMousescroll(evt) {
   if (document.activeElement?.tagName === 'TEXTAREA') {
     return;
   }
+  if (evt.ctrlKey || evt.metaKey) {
+    overlayerMousezoom.call(this, evt);
+    return;
+  }
   evt.preventDefault();
 
   wheelSheetRef = this;
@@ -149,6 +155,30 @@ function overlayerMousescroll(evt) {
   if (!wheelRafId) {
     wheelRafId = requestAnimationFrame(flushWheelPixelScroll);
   }
+}
+
+function overlayerMousezoom(evt) {
+  evt.preventDefault();
+  const { data, table, editor } = this;
+  const oldScale = data.getZoomScale();
+  const now = Date.now();
+  if (now - this.lastZoomWheelAt < WHEEL_ZOOM_THROTTLE_MS) return;
+  this.lastZoomWheelAt = now;
+
+  const direction = evt.deltaY > 0 || evt.detail > 0 ? -1 : 1;
+  const nextZoom = Math.round((oldScale + direction * WHEEL_ZOOM_STEP) * 100) / 100;
+  if (!data.setZoomScale(nextZoom)) return;
+
+  editor.clear();
+  verticalScrollbarSet.call(this);
+  horizontalScrollbarSet.call(this);
+  const ratio = data.getZoomScale() / oldScale;
+  table.autoHeightsComputed = false;
+  this.horizontalScrollbar.move({ left: data.scroll.x * ratio });
+  this.verticalScrollbar.move({ top: data.scroll.y * ratio });
+  table.render();
+  this.selector.resetAreaOffset();
+  sheetImagesUpdate.call(this);
 }
 
 function scrollbarMove() {
@@ -1181,6 +1211,7 @@ export default class Sheet {
     this.eventMap = createEventEmitter();
     this.pasteTextOnly = false;
     this.skipNextPaste = false;
+    this.lastZoomWheelAt = 0;
     const { view, showToolbar, showContextmenu } = data.settings;
     this.el = h('div', `${cssPrefix}-sheet`);
     this.toolbar = new Toolbar(data, view.width, !showToolbar);

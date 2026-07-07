@@ -87,10 +87,11 @@ function tableGridStyle() {
 }
 
 function tableFixedHeaderStyle() {
+  const scale = this && this.data ? this.data.getZoomScale() : 1;
   return {
     textAlign: 'center',
     textBaseline: 'middle',
-    font: `500 ${npx(12)}px Source Sans Pro`,
+    font: `500 ${npx(12 * scale)}px Source Sans Pro`,
     fillStyle: getExcelThemeColor('--excel-header-fg', '#585757'),
     lineWidth: thinLineWidth(),
     strokeStyle: getExcelThemeColor('--excel-grid-line', '#e6e6e6'),
@@ -171,7 +172,7 @@ export function renderCell(draw, data, rindex, cindex, yoffset = 0) {
     if (!font.name) {
       font.name = (defaultStyle.font && defaultStyle.font.name) || 'Arial';
     }
-    font.size = getFontSizePxByPt(font.size || (defaultStyle.font && defaultStyle.font.size) || 11);
+    font.size = getFontSizePxByPt(font.size || (defaultStyle.font && defaultStyle.font.size) || 11) * data.getZoomScale();
     const hyperlink = data.getHyperlink(rindex, cindex);
     const drawStyle = {
       align: style.align,
@@ -279,7 +280,7 @@ function renderFixedHeaders(type, viewRange, w, h, tx, ty) {
   // console.log(data.selectIndexes);
   // draw text
   // text font, align...
-  draw.attr(tableFixedHeaderStyle());
+  draw.attr(tableFixedHeaderStyle.call(this));
   // y-header-text
   if (type === 'all' || type === 'left') {
     data.rowEach(viewRange.sri, viewRange.eri, (i, y1, rowHeight) => {
