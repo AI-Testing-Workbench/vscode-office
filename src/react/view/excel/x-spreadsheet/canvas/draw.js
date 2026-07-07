@@ -1,5 +1,9 @@
 /* global window */
 
+// Small inset for top/bottom vertical alignment; the cell padding is meant for
+// horizontal spacing and is too large to reuse vertically.
+const VERTICAL_TEXT_PADDING = 2;
+
 function dpr() {
   return window.devicePixelRatio || 1;
 }
@@ -63,19 +67,21 @@ class DrawBox {
   }
 
   texty(align, h, blockHeight = h) {
-    const { height, padding } = this;
+    const { height } = this;
+    // Horizontal padding (cell padding) is too large for vertical spacing; use a small inset.
+    const vpad = VERTICAL_TEXT_PADDING;
     let { y } = this;
     if (align === 'top') {
-      y += padding;
+      y += vpad;
     } else if (align === 'middle') {
       // Center using full cell height; only top-align when the text block exceeds it.
       if (blockHeight > height) {
-        y += padding;
+        y += vpad;
       } else {
         y += height / 2 - h / 2;
       }
     } else if (align === 'bottom') {
-      y += height - padding - h;
+      y += height - vpad - h;
     }
     return y;
   }
