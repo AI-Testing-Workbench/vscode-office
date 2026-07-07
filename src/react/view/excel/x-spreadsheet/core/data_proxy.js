@@ -116,6 +116,25 @@ const defaultSettings = {
 const toolbarHeight = 41;
 const bottombarHeight = 41;
 
+function syncCellMergesFromRanges() {
+  const { rows, cols, merges } = this;
+  rows.each((ri) => {
+    rows.eachCells(ri, (ci, cell) => {
+      if (cell && cell.merge) delete cell.merge;
+    });
+  });
+  merges.forEach((cellRange) => {
+    const {
+      sri, sci, eri, eci,
+    } = cellRange;
+    if (sri === eri && sci === eci) return;
+    const cell = rows.getCellOrNew(sri, sci);
+    cell.merge = [eri - sri, eci - sci];
+    rows.len = Math.max(rows.len, eri + 1);
+    cols.len = Math.max(cols.len, eci + 1);
+  });
+}
+
 function applyFontStyleAttr(cstyle, property, value) {
   const font = Object.assign({}, cstyle.font || {});
   if (property === 'font-bold') {
@@ -1343,9 +1362,25 @@ export default class DataProxy {
     });
   }
 
+  setRowsHeight(sri, eri, height) {
+    this.changeData(() => {
+      for (let ri = sri; ri <= eri; ri += 1) {
+        this.rows.setHeight(ri, height);
+      }
+    });
+  }
+
   setColWidth(ci, width) {
     this.changeData(() => {
       this.cols.setWidth(ci, width);
+    });
+  }
+
+  setColsWidth(sci, eci, width) {
+    this.changeData(() => {
+      for (let ci = sci; ci <= eci; ci += 1) {
+        this.cols.setWidth(ci, width);
+      }
     });
   }
 
@@ -1507,6 +1542,7 @@ export default class DataProxy {
   }
 
   setData(d) {
+    const shouldSyncCellMerges = Object.prototype.hasOwnProperty.call(d, 'merges');
     Object.keys(d).forEach((property) => {
       if (property === 'merges' || property === 'rows'
         || property === 'cols' || property === 'validations') {
@@ -1526,6 +1562,9 @@ export default class DataProxy {
         this[property] = d[property];
       }
     });
+    if (shouldSyncCellMerges) {
+      syncCellMergesFromRanges.call(this);
+    }
     this.resetAutoFilter();
     if (d.rows || d.cols) {
       this.ensureViewExtent();

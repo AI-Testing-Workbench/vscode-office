@@ -18,6 +18,14 @@ import type { CellData, SheetData } from './x-spreadsheet/index';
 
 type RowMap = NonNullable<SheetData['rows']>;
 
+type ExcelJsWorksheetWithMerges = ExcelJS.Worksheet & {
+    _merges?: Record<string, string | { range?: string }>;
+    model: ExcelJS.Worksheet['model'] & {
+        mergeCells?: string[];
+        merges?: string[];
+    };
+};
+
 export interface ExcelData {
     sheets: SheetData[];
     maxCols: number;
@@ -51,6 +59,42 @@ const calculateColWidth = (rows: any[], colIndex: number): number => {
 const excelColWidthToPx = (width?: number) => {
     if (width == null) return null;
     return Math.round(width * 7 + 5);
+};
+
+const normalizeMergeRange = (merge: unknown): string | null => {
+    if (typeof merge === 'string') return merge;
+    if (merge && typeof merge === 'object' && 'range' in merge) {
+        const range = (merge as { range?: unknown }).range;
+        return typeof range === 'string' ? range : null;
+    }
+    return null;
+};
+
+const readWorksheetMerges = (worksheet: ExcelJS.Worksheet): string[] => {
+    const ws = worksheet as ExcelJsWorksheetWithMerges;
+    const mergeCandidates = [
+        ...(ws.model?.merges ?? []),
+        ...(ws.model?.mergeCells ?? []),
+        ...Object.values(ws._merges ?? {}),
+    ];
+    const merges = mergeCandidates
+        .map(normalizeMergeRange)
+        .filter((it): it is string => Boolean(it));
+    return Array.from(new Set(merges));
+};
+
+const expandSizeForMerge = (merge: string, size: { maxRow: number; maxCols: number }) => {
+    const range = XLSX.utils.decode_range(merge);
+    size.maxRow = Math.max(size.maxRow, range.e.r + 1);
+    size.maxCols = Math.max(size.maxCols, range.e.c + 1);
+};
+
+const readSheetJsMerges = (worksheet: XLSX.WorkSheet) => (worksheet['!merges'] ?? [])
+    .map(merge => XLSX.utils.encode_range(merge));
+
+const expandSizeForSheetJsMerge = (merge: XLSX.Range, size: { maxRow: number; maxCols: number }) => {
+    size.maxRow = Math.max(size.maxRow, merge.e.r + 1);
+    size.maxCols = Math.max(size.maxCols, merge.e.c + 1);
 };
 
 const buildCsvCols = (rows: any[][], colCount: number) => {
@@ -195,10 +239,15 @@ const convertExcelJsWorksheet = (worksheet: ExcelJS.Worksheet, workbook: ExcelJS
         if (rowNumber > maxRow) maxRow = rowNumber;
     }
 
+    const merges = readWorksheetMerges(worksheet);
+    const sheetSize = { maxRow, maxCols };
+    merges.forEach(merge => expandSizeForMerge(merge, sheetSize));
+    maxRow = sheetSize.maxRow;
+    maxCols = sheetSize.maxCols;
+
     const colCount = Math.max(maxCols, worksheet.columnCount || 0);
     const cols = buildColsFromWorksheet(worksheet, colCount);
     const styles = styleRegistry.getStyles();
-    const merges = worksheet.model.merges ?? [];
     const sheetExtras = readSheetExtras(worksheet);
     const hyperlinks = mergeHyperlinkMaps(...hyperlinkParts);
     const validations = readWorksheetValidations(worksheet);
@@ -290,7 +339,7 @@ const formatSheetJsCell = (cell: XLSX.CellObject) => {
     return String(cell.v);
 };
 
-const convertSheetJsWorksheet = (worksheet: XLSX.WorkSheet): Pick<SheetData, 'rows' | 'cols'> => {
+const convertSheetJsWorksheet = (worksheet: XLSX.WorkSheet): Pick<SheetData, 'rows' | 'cols' | 'merges'> => {
     const rows: RowMap = {};
     let maxCols = 0;
     let maxRow = 0;
@@ -319,10 +368,17 @@ const convertSheetJsWorksheet = (worksheet: XLSX.WorkSheet): Pick<SheetData, 'ro
         }
     }
 
+    const sheetSize = { maxRow, maxCols };
+    (worksheet['!merges'] ?? []).forEach(merge => expandSizeForSheetJsMerge(merge, sheetSize));
+    maxRow = sheetSize.maxRow;
+    maxCols = sheetSize.maxCols;
+
     const colCount = Math.max(maxCols, range.e.c - range.s.c + 1);
+    const merges = readSheetJsMerges(worksheet);
     return {
         rows: { len: maxRow, ...rows },
         cols: { len: colCount, ...buildColsFromSheetJsWorksheet(worksheet, colCount) },
+        merges: merges.length > 0 ? merges : undefined,
     };
 };
 
@@ -343,6 +399,7 @@ const convertSheetJsWorkbook = (workbook: XLSX.WorkBook): ExcelData => {
             name: sheetName,
             rows: converted.rows,
             cols: converted.cols,
+            ...(converted.merges ? { merges: converted.merges } : {}),
         });
     }
 
