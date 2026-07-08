@@ -59,6 +59,19 @@ const focusExpandedInlineNode = (nodeElement: HTMLElement, range: Range, atEnd =
     return focusExpandedObsidianTag(nodeElement, range, atEnd, fromOutside);
 };
 
+const escapeSpecialInlineNodeRange = (nodeElement: HTMLElement, range: Range) => {
+    const dataType = nodeElement.getAttribute("data-type");
+    if (dataType === "wikilink" || dataType === "wikilink-embed") {
+        escapeWikilinkRange(range, nodeElement);
+        return true;
+    }
+    if (dataType === "obsidian-tag") {
+        escapeObsidianTagRange(range, nodeElement);
+        return true;
+    }
+    return false;
+};
+
 const nextIsNode = (range: Range) => {
     const startContainer = range.startContainer;
     if (startContainer.nodeType === 3 && startContainer.nodeValue.length !== range.startOffset) {
@@ -131,11 +144,8 @@ export const expandMarker = (range: Range, root: HTMLElement) => {
         nodeElement.classList.remove("vditor-ir__node--hidden");
         // https://github.com/Vanessa219/vditor/issues/615 safari中光标位置跳动
         if (!focusExpandedInlineNode(nodeElement, range)) {
-            nodeElement.classList.remove("vditor-ir__node--expand");
-            if (nodeElement.getAttribute("data-type") === "obsidian-tag") {
-                escapeObsidianTagRange(range, nodeElement);
-            } else {
-                escapeWikilinkRange(range, nodeElement);
+            if (escapeSpecialInlineNodeRange(nodeElement, range)) {
+                nodeElement.classList.remove("vditor-ir__node--expand");
             }
             setSelectionFocus(range);
         }
