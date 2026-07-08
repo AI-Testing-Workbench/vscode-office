@@ -28,7 +28,8 @@ const SCROLL_EXPAND_THRESHOLD = 40;
 const HYPERLINK_CLICK_THRESHOLD = 5;
 const VIEW_EXPAND_COOLDOWN_MS = 250;
 const WHEEL_ZOOM_STEP = 0.1;
-const WHEEL_ZOOM_THROTTLE_MS = 120;
+const WHEEL_ZOOM_THROTTLE_MS = 300;
+const WHEEL_SCROLL_THROTTLE_MS = 48;
 
 function tryExpandRows(sheet, data) {
   const now = Date.now();
@@ -108,6 +109,7 @@ let wheelPendingDy = 0;
 let wheelPendingDx = 0;
 let wheelRafId = 0;
 let wheelSheetRef = null;
+let wheelLastFlushAt = 0;
 
 function flushWheelPixelScroll() {
   wheelRafId = 0;
@@ -115,6 +117,14 @@ function flushWheelPixelScroll() {
   if (!sheet) {
     return;
   }
+  const now = Date.now();
+  const elapsed = now - wheelLastFlushAt;
+  if (elapsed < WHEEL_SCROLL_THROTTLE_MS) {
+    wheelRafId = requestAnimationFrame(flushWheelPixelScroll);
+    return;
+  }
+  wheelLastFlushAt = now;
+
   const dy = wheelPendingDy;
   const dx = wheelPendingDx;
   wheelPendingDy = 0;

@@ -1195,7 +1195,12 @@ export default class DataProxy {
 
   resetAutoFilter() {
     const { autoFilter, rows } = this;
-    if (!autoFilter.active()) return;
+    if (!autoFilter.active()) {
+      this.exceptRowSet = new Set();
+      this.sortedRowMap = new Map();
+      this.unsortedRowMap = new Map();
+      return;
+    }
     const { sort } = autoFilter;
     const { sri } = autoFilter.range();
     const { rset, fset } = autoFilter.filteredRows((r, c) => rows.getCell(r, c));
