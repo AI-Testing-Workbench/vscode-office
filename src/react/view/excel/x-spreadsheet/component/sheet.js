@@ -1462,6 +1462,8 @@ export default class Sheet {
     this.print.resetData(data);
     this.selector.resetData(data);
     this.table.resetData(data);
+    this.sheetImages.setEditable(data.settings.mode !== 'read');
+    this.sheetImages.reset(data);
   }
 
   loadData(data) {
