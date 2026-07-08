@@ -946,7 +946,9 @@ export default class DataProxy {
     if (!clipboard.isClear()) {
       return this.getRect(clipboard.range);
     }
-    return { left: -100, top: -100 };
+    return {
+      left: -100, top: -100, width: 0, height: 0, l: 0, t: 0, scroll: this.scroll,
+    };
   }
 
   getImageDisplayRect(anchor) {
