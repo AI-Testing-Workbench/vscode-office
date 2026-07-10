@@ -26,18 +26,7 @@ export class SponsorPanel {
         this.element.style.display = "none";
 
         const desc = SPONSOR_DESC[lang] || DEFAULT_SPONSOR_DESC;
-        this.element.innerHTML = `
-<div class="vditor-sponsor-popup__inner">
-    <p class="vditor-sponsor-popup__desc">${desc}</p>
-    <div class="vditor-sponsor-popup__bar">
-        <button type="button" class="vditor-sponsor-popup__logo js-logo" title="Open Database Client">
-            <img src="${sponsorIconUrl}" alt="Database Client" draggable="false"/>
-        </button>
-        <span class="vditor-sponsor-popup__bar-text">
-            Supported by <a href="${SPONSOR_URL}" class="js-site">Database Client</a>
-        </span>
-    </div>
-</div>`;
+        this.element.innerHTML = ``;
 
         container.appendChild(this.element);
         this.bindEvents();

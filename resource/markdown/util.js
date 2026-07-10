@@ -7,6 +7,12 @@ const shortcutTip = isMac ? '⌘ ^ E' : 'Ctrl Alt E';
 
 export async function getToolbar(resPath, onSave = null) {
     const codicon = (name) => `<span class="codicon codicon-${name}" aria-hidden="true"></span>`;
+    const vscodeIcon = await loadRes(`${resPath}/vscode.svg`).then(svg =>
+        svg.replace(
+            '<svg width="1024" height="1024" viewBox="220 280 600 480"',
+            '<svg width="20" height="16" viewBox="220 280 600 480"'
+        )
+    ).catch(() => codicon('edit'));
     return [
         'outline',
         "headings",
@@ -17,9 +23,9 @@ export async function getToolbar(resPath, onSave = null) {
         "|",
         {
             name: 'edit-in-vscode',
-            tip: `Edit In VSCode (${shortcutTip})`,
+            tip: `Edit In TSCode (${shortcutTip})`,
             className: 'right',
-            icon: codicon('edit'),
+            icon: vscodeIcon,
             click() {
                 handler.emit("editInVSCode", true)
             }
