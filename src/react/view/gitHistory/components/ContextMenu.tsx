@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { MenuPayloadMeta } from '../contextMenu/buildContextMenu';
 import { getContextMenuIcon, getContextMenuIconColor } from '../contextMenu/contextMenuIcons';
@@ -6,6 +6,7 @@ import { getContextMenuIcon, getContextMenuIconColor } from '../contextMenu/cont
 export interface ContextMenuItem {
     id: string;
     label: string;
+    emphasis?: string;
     disabled?: boolean;
     separatorBefore?: boolean;
 }
@@ -21,6 +22,23 @@ interface ContextMenuProps {
     menu: ContextMenuState | null;
     onClose: () => void;
     onSelect: (id: string, position: { x: number; y: number }) => void;
+}
+
+function renderMenuLabel(label: string, emphasis?: string) {
+    if (!emphasis) {
+        return label;
+    }
+    const index = label.indexOf(emphasis);
+    if (index < 0) {
+        return label;
+    }
+    return (
+        <>
+            {label.slice(0, index)}
+            <span className="git-graph-menu-emphasis">{emphasis}</span>
+            {label.slice(index + emphasis.length)}
+        </>
+    );
 }
 
 export function ContextMenu({ menu, onClose, onSelect }: ContextMenuProps) {
@@ -52,6 +70,9 @@ export function ContextMenu({ menu, onClose, onSelect }: ContextMenuProps) {
 
     if (!menu) return null;
 
+    // In fixed light mode we rely on `.git-graph` CSS variables; if we portal to `body`,
+    // those variables are not defined and the menu can look transparent / unstyled.
+    const portalRoot = document.querySelector('.git-graph') ?? document.body;
     return createPortal(
         <ul
             ref={menuRef}
@@ -80,30 +101,14 @@ export function ContextMenu({ menu, onClose, onSelect }: ContextMenuProps) {
                         <span className="git-graph-context-menu-icon" aria-hidden>
                             {icon ? <span className={`codicon codicon-${icon}`} /> : null}
                         </span>
-                        <span className="git-graph-context-menu-label">{item.label}</span>
+                        <span className="git-graph-context-menu-label">
+                            {renderMenuLabel(item.label, item.emphasis)}
+                        </span>
                     </button>
                 </li>
                 );
             })}
         </ul>,
-        document.body
+        portalRoot
     );
-}
-
-export function useContextMenu() {
-    const [menu, setMenu] = useState<ContextMenuState | null>(null);
-
-    const showMenu = useCallback((
-        items: ContextMenuItem[],
-        metaById: Record<string, MenuPayloadMeta>,
-        x: number,
-        y: number,
-    ) => {
-        if (items.length === 0) return;
-        setMenu({ items, metaById, x, y });
-    }, []);
-
-    const closeMenu = useCallback(() => setMenu(null), []);
-
-    return { menu, showMenu, closeMenu };
 }

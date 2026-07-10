@@ -13,11 +13,10 @@ import type { LoadRepositoryRequest } from '../types/git';
 import { buildGitHistoryInitPayload } from '../util/gitHistoryInitPayload';
 import { GitActionHandler } from './gitActionHandler';
 import {
-    getFileHistorySplitLayout,
     setFileHistorySplitLayout,
     type FileHistorySplitLayout,
 } from '../util/gitHistoryPreferences';
-import { TelemetryService } from '@/service/telemetryService';
+import { Global } from '@/common/global';
 
 const DEFAULT_MAX_COMMITS = 300;
 
@@ -25,6 +24,7 @@ export class MessageRouter {
     private loadCommitsId = 0;
     private loadRepoInfoId = 0;
     private loadRepositoryId = 0;
+    private loadRepoExtrasId = 0;
     private warmupPromise: ReturnType<CommitService['loadRepository']> | null = null;
     private warmupRepo: string | null = null;
     private warmupRelPath: string | undefined;
@@ -67,6 +67,14 @@ export class MessageRouter {
             .on('refresh', this.wrapHandler(() => this.onRefresh()))
             .on('fetch', this.wrapHandler((content) =>
                 this.onFetch((content as { repo: string }).repo)))
+            .on('pull', this.wrapHandler((content) =>
+                this.onPull(content as {
+                    repo: string;
+                    branch: string;
+                    remote: string;
+                    noFastForward?: boolean;
+                    squash?: boolean;
+                })))
             .on('push', this.wrapHandler((content) =>
                 this.onPush(content as { repo: string; branch: string; remote: string; remotes?: string[]; force?: boolean })))
             .on('quickSync', this.wrapHandler((content) =>
@@ -90,10 +98,8 @@ export class MessageRouter {
                 this.onGitAction(content as GitActionPayload)))
             .on('saveFileHistorySplitLayout', this.wrapHandler((content) =>
                 this.onSaveFileHistorySplitLayout(content as { layout: FileHistorySplitLayout })))
-            .on('sponsorClick', this.wrapHandler((content) => {
-                const payload = content as { action: 'logo' | 'site'; component?: string; placement?: string; variant?: string };
-                TelemetryService.get()?.trackPreviewSponsorClick(payload.action, payload);
-            }))
+            .on('updateConfig', this.wrapHandler((content) =>
+                this.onUpdateConfig(content as { key: string; value: unknown })))
             .on('openSponsor', this.wrapHandler(() => {
                 void vscode.commands.executeCommand(
                     'workbench.extensions.action.showExtensionsWithIds',
@@ -189,7 +195,7 @@ export class MessageRouter {
     }
 
     private canReuseWarmup(payload: LoadRepositoryRequest, relPath?: string): boolean {
-        if (!this.warmupPromise || this.warmupRepo !== payload.repo || payload.invalidateCache) {
+        if (!this.warmupPromise || this.warmupRepo !== payload.repo) {
             return false;
         }
         if (payload.branches !== null && payload.branches.length > 0) {
@@ -211,9 +217,6 @@ export class MessageRouter {
         if (this.canReuseWarmup(payload, relPath)) {
             resultPromise = this.warmupPromise!;
         } else {
-            if (payload.invalidateCache) {
-                this.invalidateRepoCache(payload.repo);
-            }
             resultPromise = this.commitService.loadRepository(request);
         }
         this.warmupPromise = null;
@@ -231,7 +234,20 @@ export class MessageRouter {
         });
         if (!result.repoInfo.error) {
             this.startWatchingRepo(payload.repo);
-            void this.loadRepoExtras(payload.repo, refreshId, result.repoInfo.remotes, 'repository');
+            void this.loadRepoExtras({
+                repo: payload.repo,
+                branches: request.branches,
+                showTags: request.showTags,
+                showRemoteBranches: request.showRemoteBranches,
+                includeCommitsMentionedByReflogs: request.includeCommitsMentionedByReflogs,
+                onlyFollowFirstParent: request.onlyFollowFirstParent,
+                commitOrdering: request.commitOrdering,
+                remotes: result.repoInfo.remotes,
+                hideRemotes: request.hideRemotes,
+                stashes: result.repoInfo.stashes,
+                searchValue: request.searchValue,
+                relPath,
+            }, result.repoInfo.remotes);
         }
     }
 
@@ -240,10 +256,15 @@ export class MessageRouter {
         await setFileHistorySplitLayout(this.extensionContext, layout);
     }
 
-    private async onLoadRepoInfo(payload: LoadRepoInfoPayload): Promise<void> {
-        if (payload.invalidateCache) {
-            this.invalidateRepoCache(payload.repo);
+    private async onUpdateConfig(payload: { key: string; value: unknown }): Promise<void> {
+        const key = payload.key?.trim();
+        if (!key) {
+            return;
         }
+        await Global.updateConfig(key, payload.value);
+    }
+
+    private async onLoadRepoInfo(payload: LoadRepoInfoPayload): Promise<void> {
         const refreshId = ++this.loadRepoInfoId;
         const info = await this.commitService.getRepoInfo(
             payload.repo,
@@ -254,23 +275,31 @@ export class MessageRouter {
             return;
         }
         this.handler.emit('repoInfo', info);
-        void this.loadRepoExtras(payload.repo, refreshId, info.remotes, 'repoInfo');
+        void this.loadRepoExtras({
+            repo: payload.repo,
+            branches: null,
+            showTags: true,
+            showRemoteBranches: payload.showRemoteBranches,
+            includeCommitsMentionedByReflogs: false,
+            onlyFollowFirstParent: false,
+            commitOrdering: 'date',
+            remotes: info.remotes,
+            hideRemotes: [],
+            stashes: info.stashes,
+            relPath: this.resolveRelPath(payload.repo),
+        }, info.remotes);
     }
 
     private async loadRepoExtras(
-        repo: string,
-        refreshId: number,
+        request: Parameters<CommitService['getAuthors']>[0],
         remotes: ReadonlyArray<string>,
-        refreshKind: 'repoInfo' | 'repository' = 'repoInfo',
     ): Promise<void> {
+        const refreshId = ++this.loadRepoExtrasId;
         const [authors, remoteUrls] = await Promise.all([
-            this.commitService.getAuthorsCached(repo),
-            this.gitActions.getRemoteWebUrls(repo, remotes),
+            this.commitService.getAuthors(request),
+            this.gitActions.getRemoteWebUrls(request.repo, remotes),
         ]);
-        const stale = refreshKind === 'repository'
-            ? refreshId !== this.loadRepositoryId
-            : refreshId !== this.loadRepoInfoId;
-        if (stale) {
+        if (refreshId !== this.loadRepoExtrasId) {
             return;
         }
         this.handler.emit('repoExtras', {
@@ -301,6 +330,20 @@ export class MessageRouter {
         });
         if (refreshId === this.loadCommitsId) {
             this.handler.emit('commits', { ...data, relPath: relPath ?? null });
+            void this.loadRepoExtras({
+                repo: payload.repo,
+                branches: payload.branches,
+                showTags: payload.showTags,
+                showRemoteBranches: payload.showRemoteBranches,
+                includeCommitsMentionedByReflogs: payload.includeCommitsMentionedByReflogs,
+                onlyFollowFirstParent: payload.onlyFollowFirstParent,
+                commitOrdering: payload.commitOrdering,
+                remotes: payload.remotes,
+                hideRemotes: payload.hideRemotes,
+                stashes: payload.stashes,
+                searchValue: payload.searchValue,
+                relPath,
+            }, payload.remotes);
         }
     }
 
@@ -319,16 +362,28 @@ export class MessageRouter {
         this.handler.emit('refresh', { repos: this.repoDiscovery.getRepos() });
     }
 
-    private invalidateRepoCache(repo: string): void {
-        this.commitService.invalidateRepoCache(repo);
-    }
-
     private async onFetch(repo: string): Promise<void> {
         const error = await this.gitActions.fetchFromRemotes(repo);
-        if (!error) {
-            this.invalidateRepoCache(repo);
-        }
         this.handler.emit('fetch', { error });
+    }
+
+    private async onPull(payload: {
+        repo: string;
+        branch: string;
+        remote: string;
+        noFastForward?: boolean;
+        squash?: boolean;
+    }): Promise<void> {
+        const error = await this.gitActions.pullCurrentBranch(
+            payload.repo,
+            payload.branch,
+            payload.remote,
+            {
+                noFastForward: payload.noFastForward,
+                squash: payload.squash,
+            },
+        );
+        this.handler.emit('pull', { error });
     }
 
     private async onPush(payload: { repo: string; branch: string; remote: string; remotes?: string[]; force?: boolean }): Promise<void> {
@@ -345,7 +400,6 @@ export class MessageRouter {
                 return;
             }
         }
-        this.invalidateRepoCache(payload.repo);
         this.handler.emit('push', { error: null, cancelled: false });
     }
 
@@ -367,9 +421,6 @@ export class MessageRouter {
                 squash: payload.squash,
             },
         );
-        if (!error) {
-            this.invalidateRepoCache(payload.repo);
-        }
         this.handler.emit('quickSync', { error });
     }
 
@@ -383,9 +434,6 @@ export class MessageRouter {
         if (result.cancelled) {
             this.handler.emit('remoteActionResult', { error: null, cancelled: true, refresh: false });
             return;
-        }
-        if (!result.error) {
-            this.invalidateRepoCache(payload.repo);
         }
         this.handler.emit('remoteActionResult', {
             error: result.error,
@@ -409,11 +457,8 @@ export class MessageRouter {
     private async onGitAction(payload: GitActionPayload): Promise<void> {
         const result = await this.gitActionHandler.handle(payload);
         if (result.error) {
-            this.handler.emit('gitActionResult', { error: result.error, refresh: false });
+            this.handler.emit('gitActionResult', { error: result.error, warning: null, refresh: false });
             return;
-        }
-        if (result.refresh && payload.action !== 'viewScm' && 'repo' in payload) {
-            this.invalidateRepoCache(payload.repo);
         }
         this.handler.emit('gitActionResult', result);
     }

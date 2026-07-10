@@ -1,13 +1,17 @@
-import type { MouseEvent, ReactNode } from 'react';
+import { useMemo, useState } from 'react';
+import type { MouseEvent, ReactNode, CSSProperties } from 'react';
 import { Typography } from 'antd';
 import type { GitCommit, GitCommitRemote } from '../types';
 import type { GraphConfig } from '../graph/layoutEngine';
+import { computeGraphLayout } from '../graph/layoutEngine';
 import {
     getCheckedOutBranchLabel,
     isActiveBranchRef,
     isActiveTagRef,
 } from '../util/refHighlight';
 import { getBranchLabels } from '../util/branchLabels';
+import { formatCommitDate } from '../util/formatCommitDate';
+import { getVertexColour } from '../util/graphColours';
 import GraphSvg from './GraphSvg';
 import { BranchRefIcon, StashRefIcon, TagRefIcon } from './RefIcons';
 
@@ -21,11 +25,13 @@ interface CommitTableProps {
     commits: GitCommit[];
     branchHead: string | null;
     commitHead: string | null;
-    selectedIndex: number | null;
+    selectedIndices: ReadonlySet<number>;
+    focusIndex: number | null;
     findMatchIndex: number | null;
     rowHeight: number;
     graphConfig: GraphConfig;
     fileHistoryMode?: boolean;
+    dimOffCurrentBranch?: boolean;
     onSelect: (index: number, event?: MouseEvent) => void;
     onRowContextMenu: (event: MouseEvent, commit: GitCommit, index: number) => void;
     onRefContextMenu: (
@@ -35,10 +41,6 @@ interface CommitTableProps {
         refName: string,
         remote?: GitCommitRemote,
     ) => void;
-}
-
-function formatDate(timestamp: number): string {
-    return new Date(timestamp * 1000).toLocaleString();
 }
 
 function abbrevHash(hash: string): string {
@@ -187,15 +189,15 @@ function RefTags({
 }
 
 function CommitHeadDot({
-    commit,
     branchHead,
     commitHead,
+    commitHash,
 }: {
-    commit: GitCommit;
     branchHead: string | null;
     commitHead: string | null;
+    commitHash: string;
 }) {
-    if (commitHead === null || commit.hash !== commitHead) {
+    if (commitHead === null || commitHash !== commitHead) {
         return null;
     }
     const checkedOutBranch = getCheckedOutBranchLabel(branchHead);
@@ -206,20 +208,39 @@ function CommitHeadDot({
 }
 
 export default function CommitTable({
-    commits, branchHead, commitHead, selectedIndex, findMatchIndex, rowHeight, graphConfig,
-    fileHistoryMode = false, onSelect, onRowContextMenu, onRefContextMenu,
+    commits, branchHead, commitHead, selectedIndices, focusIndex, findMatchIndex, rowHeight, graphConfig,
+    fileHistoryMode = false, dimOffCurrentBranch = false, onSelect, onRowContextMenu, onRefContextMenu,
 }: CommitTableProps) {
+    const multiSelect = selectedIndices.size > 1;
+    const [renderTime] = useState(() => Date.now());
+    const formattedDates = useMemo(() => {
+        const dates: string[] = [];
+        for (let i = 0; i < commits.length; i++) {
+            dates.push(formatCommitDate(commits[i].date, renderTime));
+        }
+        return dates;
+    }, [commits, renderTime]);
+    const layout = useMemo(
+        () => computeGraphLayout(
+            commits,
+            commitHead,
+            rowHeight,
+            graphConfig,
+            false,
+            fileHistoryMode,
+            false,
+        ),
+        [commits, commitHead, rowHeight, graphConfig, fileHistoryMode],
+    );
+
     return (
         <div className="git-graph-table-wrapper">
             <div className="git-graph-graph-col">
                 <div className="git-graph-graph-header">Graph</div>
                 <GraphSvg
-                    commits={commits}
-                    commitHead={commitHead}
-                    rowHeight={rowHeight}
-                    selectedIndex={selectedIndex}
-                    graphConfig={graphConfig}
-                    linearFileHistory={fileHistoryMode}
+                    layout={layout}
+                    selectedIndices={selectedIndices}
+                    focusIndex={focusIndex}
                     onSelect={onSelect}
                 />
             </div>
@@ -231,20 +252,42 @@ export default function CommitTable({
                     <span className="col-hash">Hash</span>
                 </div>
                 <div className="git-graph-table-body">
-                    {commits.map((commit, index) => (
+                    {commits.map((commit, index) => {
+                        const isSelected = selectedIndices.has(index);
+                        const rowClass = [
+                            'git-graph-row',
+                            isSelected && multiSelect ? 'multi-selected' : '',
+                            isSelected && !multiSelect ? 'selected' : '',
+                            isSelected && multiSelect && focusIndex === index ? 'selection-focus' : '',
+                            findMatchIndex === index ? 'find-match' : '',
+                            commitHead !== null && commit.hash === commitHead ? 'current-head' : '',
+                            commit.hash === UNCOMMITTED ? 'uncommitted' : '',
+                            commit.onCurrentBranch === false && dimOffCurrentBranch ? 'off-current-branch' : '',
+                        ].filter(Boolean).join(' ');
+                        const rowStyle = {
+                            height: rowHeight,
+                            '--git-graph-color': getVertexColour(layout.vertexColors, graphConfig.colours, index),
+                        } as CSSProperties;
+                        return (
                         <div
                             key={commit.hash + index}
                             data-commit-index={index}
-                            className={`git-graph-row${selectedIndex === index ? ' selected' : ''}${findMatchIndex === index ? ' find-match' : ''}${commitHead !== null && commit.hash === commitHead ? ' current-head' : ''}${commit.hash === UNCOMMITTED ? ' uncommitted' : ''}`}
-                            style={{ height: rowHeight }}
+                            data-color={layout.vertexColors[index] ?? 0}
+                            className={rowClass}
+                            style={rowStyle}
+                            onMouseDown={(e) => {
+                                if (e.shiftKey || e.metaKey || e.ctrlKey) {
+                                    e.preventDefault();
+                                }
+                            }}
                             onClick={(e) => onSelect(index, e)}
                             onContextMenu={(e) => onRowContextMenu(e, commit, index)}
                         >
                             <span className="col-desc">
                                 <CommitHeadDot
-                                    commit={commit}
                                     branchHead={branchHead}
                                     commitHead={commitHead}
+                                    commitHash={commit.hash}
                                 />
                                 <RefTags
                                     commit={commit}
@@ -255,7 +298,7 @@ export default function CommitTable({
                                 <Text ellipsis className={`git-graph-message${commit.hash === UNCOMMITTED ? ' git-graph-message-uncommitted' : ''}`}>{commit.message}</Text>
                             </span>
                             <span className="col-date">
-                                <Text ellipsis className="git-graph-muted">{formatDate(commit.date)}</Text>
+                                <Text ellipsis className="git-graph-muted">{formattedDates[index]}</Text>
                             </span>
                             <span className="col-author">
                                 <Text ellipsis className="git-graph-muted">{commit.author}</Text>
@@ -264,7 +307,8 @@ export default function CommitTable({
                                 <code className="git-graph-hash">{abbrevHash(commit.hash)}</code>
                             </span>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>

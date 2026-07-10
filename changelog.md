@@ -1,5 +1,202 @@
 # Change log
 
+# 4.1.5 2026-7-8
+
+Fix:
+
+- Fix unexpected file reload on edit.
+- Prevent Zip Slip path traversal in archive extraction(Reported by Mykhailo Kholiev).
+
+Git History:
+
+- Improve git history view UI.
+- Change date format to yyyy-MM-dd.
+- Support more remote URL formats.
+
+Markdown Editor:
+
+New:
+- Add Shift+Tab support.
+- Add typewriter mode support.
+- Add new line button for quick row insertion.
+- Support quick drag to resize images(Pro Feature).
+
+Update:
+
+- Improve large file editing performance.
+- Add replace feature to find component.
+- IR mode: support block drag-and-drop and table enhancements.
+- Beautify context menu and settings modal.
+- Remove automatic double quote completion.
+- Remove default 400px code block height limit.
+
+Fix:
+
+- Fix failure to edit tags and wikilinks normally.
+- Fix extra blank line left after deleting sublist
+- Fix settings modal closing when deleting prompt or model.
+
+Excel:
+
+Update:
+
+- Copy cells with HTML formatting.
+- Support zoom adjustment via scroll wheel.
+- Preserve formatting when pasting from Excel.
+- Support editable image drag and resize.
+- Support cell selection in config function.
+- Improve user interaction and context menu appearance.
+- Change page scrolling from cell-based to pixel-based.
+
+Fix:
+
+- Fix find component focus accuracy.
+- Fix vertical alignment display error.
+- Fix cell text overflow, editor overlay, and row height.
+- Fix cell interaction and descending sort after sorting.
+
+# 4.1.3-4 2026-7-3
+
+Fix:
+
+- Fix SVG loading failure.
+- Fix PPTX loading failure.
+
+# 4.1.2 2026-7-3
+
+Markdown Editor:
+
+- Improve AI review panel.
+- Add quick action presets for AI Polish.
+- Add output language selection for AI Polish.
+
+Fix:
+
+- Fix math formulas and diagrams (Mermaid, PlantUML) not rendering correctly after code block lazy-loading optimization.
+
+# 4.1.1 2026-7-3
+
+Markdown Editor:
+
+- Add code search support within code blocks.
+- Improve editor performance when handling multiple code blocks.
+
+Export:
+
+- Move PDF export margin inside the content container.
+- Upgrade html-to-docx for improved DOCX export quality.
+- Dynamically load export dependencies (HTML, DOCX, PDF) to reduce extension size.
+
+Git History:
+
+- Add warning echo for Git operations.
+- Fix graph being incorrectly dimmed.
+- Align author filter options and simplify filtered graph.
+
+Update:
+
+- Improve view rendering performance.
+- Replace cheerio with node-html-parser.
+- Dynamically load Mermaid and Puppeteer to reduce extension size.
+
+Fix:
+
+- Resolve inline HTML rendering issue.
+- Resolve file loading failure on Windows virtual space.
+
+# 4.1.0 2026-7-1
+
+New: Add Parquet file format support.
+
+Markdown Editor:
+
+- Improve visual design.
+- Update keyboard shortcuts.
+- Support code block font configuration.
+- Improve light/dark mode switching logic.
+- Fix failure to open relative path files in IR mode.
+- Support font size adjustment via scroll wheel in the editor.
+
+Pro:
+
+- Introduce Pro license activation.
+- Remove Sponsor banner after Pro activation.
+- Support custom font color and background color editing.
+- Support adjusting image width and height in the Markdown editor.
+- Support beautiful PDF / HTML / DOCX export with theme, font, and font-size options.
+
+Git History:
+
+- Improve visual design.
+- Adjust Git branch colors for better visibility in light mode.
+- Gray out non-current commits while loading Git history view.
+- Fix color inconsistency between graph lines and branches in Git history view.
+
+# 4.0.9 2026-6-29
+
+Update:
+
+- Restore missing HTML viewer previewer registration.
+- Fix outline loading failure caused by special headings (code blocks, line breaks).
+- Improve file loading performance by streaming via webview URI instead of message buffer transfer.
+
+# 4.0.8 2026-6-29
+
+Markdown editor:
+
+Update:
+
+- Add image preview.
+- Beautify CodeMirror toolbar.
+- Disable latex syntax validation.
+- Remember last selected theme preference.
+- Sync settings to other editors after modification.
+- Support expandable code blocks with configurable height.
+
+Git History:
+
+- Improve Git view and Git history view styling.
+- Support double-click to quick push in Git view.
+- Git history view supports pull and batch operations.
+
+Fix:
+
+- Support saving links with spaces.
+- Fix class file decompilation failure.
+- Fix Wikilinks in remote environment.
+- Preserve bold text color in light theme.
+- Prevent file cache generation after each view.
+- Fix relative links and images in remote environment.
+- Fix markdown editor loading issue for Russian locale.
+- Fix the missing margin for the first child element at the top of the page.
+
+# 4.0.7 2026-6-26
+
+New:
+
+- Support editing Vditor configuration via a configuration file.
+- Markdown editor supports remote and web workspaces (vscode-vfs, vscode-remote).
+
+Update:
+
+- Beautify alert color.
+- Improve PDF loading performance.
+- Improve Git history view styling.
+- Improve TIFF/HEIC loading performance.
+- Change the default Excel font size to 11.
+- Remove Git history caching for more accurate data.
+
+Markdown:
+
+- Add AI polish usage tip in settings panel.
+- Fix CodeMirror font not syncing with typography settings.
+- Fix pasted math formula blocks being converted into code blocks.
+
+Fix:
+
+- Fix incorrect read-only mode detection.
+- Fix remote URL order in Git view with multiple repositories.
+
 # 4.0.6 2026-6-26
 
 New:

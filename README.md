@@ -16,9 +16,14 @@ This extension lets you preview and edit common office and design files directly
 - Markdown: `.md`, `.markdown`
 - HTML: `.html`, `.htm`
 - HTTP request: `.http`, `.rest`
-- Windows Registry: `.reg`
 - Java: `.class` (decompiler)
 - Compressed files: `.zip`, `.jar`, `.vsix`, `.rar`, `.7z`, `.tar`, `.tar.gz`, `.tgz`, `.apk`
+
+## Git History
+
+Office Viewer includes a full Git History workspace for exploring repositories without leaving VS Code. Open it from the Source Control view, the editor title bar, the editor context menu, or the file explorer context menu.
+
+![1783342874748](image/README/1783342874748.png)
 
 ## Markdown
 
@@ -41,14 +46,15 @@ Right-click in the editor to export Markdown to PDF, DOCX, or HTML. PDF export r
 
 Shortcuts: Based on [shortcut.md](shortcut.md), plus:
 
-- Move list up: `Ctrl Alt I` / `⌘ ^ I`
-- Move list down: `Ctrl Alt J` / `⌘ ^ J`
+- New line: `Ctrl+Enter` / `⌘ Enter`
+- Edit hyperlink: `Alt+Enter` / `^ Enter`
+- Set CodeMirror language: `Alt+Enter` / `^ Enter`
 - Edit in VS Code: `Ctrl Alt E` / `⌘ ^ E`
+- Paste as plain text: `Ctrl+Shift+V` / `⌘ ⇧ V`
 
 ## Other features
 
 - HTML: live preview while editing; press `Ctrl+Shift+V` to open the live view
-- Git History: browse commit graph, view file history, compare revisions, and perform common Git operations from the Source Control view or file context menu
 - YAML: document outline and anchor navigation (Go to Definition for alias references)
 - Icon theme: includes a subset of [Material Icon Theme](https://github.com/PKief/vscode-material-icon-theme) icons, plus **Office Material Icon Theme** and **One Dark Modern** color themes
 - Excel: preview and save `.xlsx`, `.xls`, `.xlsm`, `.csv`, and `.ods` files (saving `.xlsx` may lose formatting; `.csv` does not support GBK-encoded Chinese)
@@ -57,9 +63,49 @@ Shortcuts: Based on [shortcut.md](shortcut.md), plus:
 
 ## Sponsor
 
-[![Database Client](https://database-client.com/text_logo.png)](https://marketplace.visualstudio.com/items?itemName=cweijan.vscode-database-client2)
+[![Database Client](https://doc.database-client.com/public/logo.png)](https://marketplace.visualstudio.com/items?itemName=cweijan.vscode-database-client2)
 
 Database Client for Visual Studio Code, supporting the management of **MySQL/MariaDB, PostgreSQL, SQLite, Redis**, and **ElasticSearch**, and works as an **SSH** client to boost your productivity! [Get it now](https://marketplace.visualstudio.com/items?itemName=cweijan.vscode-database-client2).
+
+## Development Guide
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) 18+
+- [VS Code](https://code.visualstudio.com/) 1.64+
+
+### Getting started
+
+```bash
+git clone https://github.com/cweijan/vscode-office.git
+cd vscode-office
+npm install
+```
+
+### Development
+
+**Desktop extension** (full feature set):
+
+```bash
+npm run dev
+```
+
+Press `F5` in VS Code, or choose **Extension** from Run and Debug.
+
+**Web extension** (Markdown, HTML, YAML in the browser):
+
+```bash
+npm run dev:web
+```
+
+Choose **Extension (Web)** from Run and Debug.
+
+### Build & package
+
+```bash
+npm run build    # production build
+npm run package  # create .vsix
+```
 
 ## Usage data
 
@@ -67,11 +113,9 @@ Office Viewer collects **anonymous usage data** to understand which preview feat
 
 ### What we collect
 
-| Event | When | Properties |
-|-------|------|------------|
+| Event         | When                              | Properties                                                                                                 |
+| ------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `view.open` | A custom preview/editor is opened | `viewType` (e.g. `excel`, `markdown`, `pdf`), `fileType` (extension only, e.g. `xlsx`, `md`) |
-| `gitHistory.view` | Git History is opened | `mode`: `repo` or `file` |
-| `markdown.export` | Markdown is exported from the editor context menu | `type`: `pdf`, `html`, or `docx` |
 
 We **do not** collect file paths, file names, URLs, repository names, request contents, or other personally identifiable information.
 

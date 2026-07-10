@@ -4,9 +4,9 @@ import { Handler } from "@/common/handler";
 import { isUriReadOnly } from '@/common/fileReadOnly';
 import { Uri, workspace } from 'vscode';
 import { emitFileOfficeOpen, emitVirtualOfficeOpen, isVirtualUri } from '@/provider/handlers/officeContent';
-import { TelemetryService } from '@/service/telemetryService';
 
 const fileSaveTimes: Record<string, number> = {};
+const INTERNAL_SAVE_CHANGE_WINDOW_MS = 1500;
 
 function buildDefaultXlsxUri(uri: Uri): Uri {
     const { dir, name } = parse(uri.fsPath);
@@ -19,7 +19,7 @@ function buildDefaultXlsxUri(uri: Uri): Uri {
 
 export function shouldSkipFileChange(uri: Uri): boolean {
     const lastSaveTime = fileSaveTimes[uri.toString()];
-    return !!(lastSaveTime && Date.now() - lastSaveTime < 100);
+    return !!(lastSaveTime && Date.now() - lastSaveTime < INTERNAL_SAVE_CHANGE_WINDOW_MS);
 }
 
 function setDirty(handler: Handler, uri: Uri, dirty: boolean) {
@@ -37,12 +37,11 @@ export function handleCommonEvent(uri: Uri, handler: Handler, options?: { skipOp
         if (shouldSkipFileChange(uri)) {
             return;
         }
+        readOnly = await isUriReadOnly(uri);
         if (isVirtualUri(uri)) {
-            readOnly = true;
             void emitVirtualOfficeOpen(handler, uri);
             return;
         }
-        readOnly = await isUriReadOnly(uri);
         await emitFileOfficeOpen(handler, uri, handler.panel.webview);
     }
     const events = handler
@@ -63,6 +62,7 @@ export function handleCommonEvent(uri: Uri, handler: Handler, options?: { skipOp
                 handler.emit('saveAs', { content: [...res] });
                 return;
             }
+            fileSaveTimes[uri.toString()] = Date.now();
             await workspace.fs.writeFile(uri, res)
             fileSaveTimes[uri.toString()] = Date.now();
             setDirty(handler, uri, false);
@@ -82,6 +82,7 @@ export function handleCommonEvent(uri: Uri, handler: Handler, options?: { skipOp
                 xls: { label: 'Excel 97-2003 Workbook', exts: ['xls'] },
                 ods: { label: 'OpenDocument Spreadsheet', exts: ['ods'] },
                 csv: { label: 'CSV (Comma delimited)', exts: ['csv'] },
+                parquet: { label: 'Apache Parquet', exts: ['parquet'] },
                 docx: { label: 'Word Document', exts: ['docx'] },
                 dotx: { label: 'Word Template', exts: ['dotx'] },
             };
@@ -91,6 +92,7 @@ export function handleCommonEvent(uri: Uri, handler: Handler, options?: { skipOp
                 filters: { [info.label]: info.exts },
             });
             if (!target) return;
+            fileSaveTimes[target.toString()] = Date.now();
             await workspace.fs.writeFile(target, res);
             fileSaveTimes[target.toString()] = Date.now();
             setDirty(handler, uri, false);
@@ -98,9 +100,7 @@ export function handleCommonEvent(uri: Uri, handler: Handler, options?: { skipOp
             await vscode.commands.executeCommand('vscode.openWith', target, 'cweijan.officeViewer');
         })
         .on('developerTool', () => vscode.commands.executeCommand('workbench.action.toggleDevTools'))
-        .on('sponsorClick', (payload: { action: 'logo' | 'site'; component?: string; placement?: string; variant?: string }) => {
-            TelemetryService.get()?.trackPreviewSponsorClick(payload.action, payload);
-        })
+        .on('sponsorClick', () => { })
         .on('openSponsor', () => {
             vscode.commands.executeCommand(
                 'workbench.extensions.action.showExtensionsWithIds',

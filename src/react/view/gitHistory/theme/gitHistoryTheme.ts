@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, createElement, type ReactNode, type CSSProperties } from 'react';
 import { theme, type ThemeConfig } from 'antd';
 import { getVscodeThemeColor, isVscodeDarkTheme, observeVscodeThemeChange } from '../../../util/vscodeTheme';
+import { adjustBranchColoursForLightBackground } from '../util/graphColours';
 import type { GraphConfig } from '../graph/layoutEngine';
 import type { GitHistoryColorMode } from '../util/gitHistoryState';
 
@@ -29,8 +30,8 @@ export function useGitHistoryColorMode(): GitHistoryColorMode {
 }
 
 const GRAPH_COLOUR_VARS = [
-    '--vscode-gitDecoration-modifiedResourceForeground',
     '--vscode-textLink-foreground',
+    '--vscode-gitDecoration-modifiedResourceForeground',
     '--vscode-gitDecoration-addedResourceForeground',
     '--vscode-gitDecoration-renamedResourceForeground',
     '--vscode-terminal-ansiMagenta',
@@ -42,7 +43,7 @@ const GRAPH_COLOUR_VARS = [
 ] as const;
 
 const GRAPH_COLOUR_FALLBACKS = [
-    '#e2c08d', '#3794ff', '#73c991', '#73c991', '#bc05bc',
+    '#3794ff', '#e2c08d', '#73c991', '#73c991', '#bc05bc',
     '#c74e39', '#0598bc', '#73c991', '#cdcd22', '#e51400',
 ];
 
@@ -59,15 +60,23 @@ function uniqueColours(colours: string[]): string[] {
     return result;
 }
 
-export function getGraphBranchColours(): string[] {
+function resolveGraphBranchColours(background: string, forceLight = false): string[] {
     const colours: string[] = [];
     for (let i = 0; i < GRAPH_COLOUR_VARS.length; i++) {
         colours.push(getVscodeThemeColor(GRAPH_COLOUR_VARS[i], GRAPH_COLOUR_FALLBACKS[i]));
     }
-    return uniqueColours(colours);
+    const unique = uniqueColours(colours);
+    const useLightAlgorithm = forceLight || !isVscodeDarkTheme();
+    if (!useLightAlgorithm) {
+        return unique;
+    }
+    return uniqueColours(adjustBranchColoursForLightBackground(unique, background));
 }
 
-const LIGHT_BRANCH_COLOURS = uniqueColours([...GRAPH_COLOUR_FALLBACKS]);
+export function getGraphBranchColours(background?: string): string[] {
+    const bg = background ?? getVscodeThemeColor('--vscode-editor-background', '#ffffff');
+    return resolveGraphBranchColours(bg);
+}
 
 function buildAntTheme(cssVars: Record<string, string>, dark: boolean): ThemeConfig {
     return {
@@ -131,11 +140,12 @@ function applyBranchColourVars(cssVars: Record<string, string>, branchColours: s
 
 function buildAdaptiveGitHistoryTheme(): GitHistoryTheme {
     const dark = isVscodeDarkTheme();
-    const branchColours = getGraphBranchColours();
+    const background = getVscodeThemeColor('--vscode-editor-background', dark ? '#1e1e1e' : '#ffffff');
+    const branchColours = resolveGraphBranchColours(background);
     const uncommittedColour = getVscodeThemeColor('--vscode-descriptionForeground', '#808080');
 
     const cssVars: Record<string, string> = {
-        '--git-graph-bg': getVscodeThemeColor('--vscode-editor-background', dark ? '#1e1e1e' : '#ffffff'),
+        '--git-graph-bg': background,
         '--git-graph-fg': getVscodeThemeColor('--vscode-editor-foreground', dark ? '#cccccc' : '#333333'),
         '--git-graph-muted': getVscodeThemeColor('--vscode-descriptionForeground', dark ? '#999999' : '#666666'),
         '--git-graph-border': getVscodeThemeColor(
@@ -174,12 +184,20 @@ function buildAdaptiveGitHistoryTheme(): GitHistoryTheme {
         '--git-graph-input-fg': getVscodeThemeColor('--vscode-input-foreground', dark ? '#cccccc' : '#333333'),
         '--git-graph-input-border': getVscodeThemeColor('--vscode-input-border', dark ? '#3c3c3c' : '#d9d9d9'),
         '--git-graph-toolbar-btn-fetch': getVscodeThemeColor('--vscode-textLink-foreground', '#3794ff'),
+        '--git-graph-toolbar-btn-pull': getVscodeThemeColor('--vscode-terminal-ansiCyan', '#29b8db'),
         '--git-graph-toolbar-btn-push': getVscodeThemeColor('--vscode-gitDecoration-addedResourceForeground', '#73c991'),
         '--git-graph-toolbar-btn-remote': getVscodeThemeColor('--vscode-gitDecoration-modifiedResourceForeground', '#e2c08d'),
         '--git-graph-toolbar-btn-sync': getVscodeThemeColor('--vscode-terminal-ansiCyan', '#0598bc'),
         '--git-graph-reset-option-accent': getVscodeThemeColor('--vscode-terminal-ansiYellow', '#d7ba7d'),
+        // Used by custom-styled checkboxes/buttons inside dialogs.
+        // If undefined, checked checkboxes can look "hollow" (transparent) because we use `appearance: none`.
+        '--git-graph-primary-btn-bg': getVscodeThemeColor('--vscode-button-background', '#0e639c'),
+        '--git-graph-primary-btn-bg-hover': getVscodeThemeColor('--vscode-button-hoverBackground', '#1177bb'),
+        '--git-graph-primary-btn-fg': getVscodeThemeColor('--vscode-button-foreground', '#ffffff'),
     };
     cssVars['--git-graph-detail-text'] = cssVars['--git-graph-fg'];
+    cssVars['--git-graph-emphasis-fg'] = cssVars['--git-graph-accent'];
+    cssVars['--git-graph-emphasis-fg-hover'] = cssVars['--git-graph-accent'];
 
     applyBranchColourVars(cssVars, branchColours);
 
@@ -191,7 +209,8 @@ function buildAdaptiveGitHistoryTheme(): GitHistoryTheme {
 }
 
 function buildLightGitHistoryTheme(): GitHistoryTheme {
-    const branchColours = LIGHT_BRANCH_COLOURS;
+    const background = '#ffffff';
+    const branchColours = resolveGraphBranchColours(background, true);
     const uncommittedColour = '#808080';
     const cssVars: Record<string, string> = {
         '--git-graph-bg': '#ffffff',
@@ -208,24 +227,30 @@ function buildLightGitHistoryTheme(): GitHistoryTheme {
         '--git-graph-accent': '#1677ff',
         '--git-graph-uncommitted': uncommittedColour,
         '--git-graph-ref-head': '#1677ff',
-        '--git-graph-ref-tag': '#73c991',
-        '--git-graph-ref-remote': '#e2c08d',
+        '--git-graph-ref-tag': '#2ea043',
+        '--git-graph-ref-remote': '#b58900',
         '--git-graph-ref-stash': '#bc05bc',
-        '--git-graph-status-added': '#73c991',
-        '--git-graph-status-modified': '#e2c08d',
-        '--git-graph-status-deleted': '#c74e39',
-        '--git-graph-status-renamed': '#73c991',
-        '--git-graph-status-untracked': '#73c991',
+        '--git-graph-status-added': '#2ea043',
+        '--git-graph-status-modified': '#b58900',
+        '--git-graph-status-deleted': '#b42318',
+        '--git-graph-status-renamed': '#2ea043',
+        '--git-graph-status-untracked': '#2ea043',
         '--git-graph-folder-icon': '#b8860b',
         '--git-graph-code-bg': '#f0f0f0',
         '--git-graph-input-bg': '#ffffff',
         '--git-graph-input-fg': '#333333',
         '--git-graph-input-border': '#d9d9d9',
         '--git-graph-toolbar-btn-fetch': '#1677ff',
-        '--git-graph-toolbar-btn-push': '#73c991',
-        '--git-graph-toolbar-btn-remote': '#e2c08d',
+        '--git-graph-toolbar-btn-pull': '#0598bc',
+        '--git-graph-toolbar-btn-push': '#2ea043',
+        '--git-graph-toolbar-btn-remote': '#b58900',
         '--git-graph-toolbar-btn-sync': '#0598bc',
         '--git-graph-reset-option-accent': '#b58900',
+        '--git-graph-primary-btn-bg': '#007acc',
+        '--git-graph-primary-btn-bg-hover': '#006bb3',
+        '--git-graph-primary-btn-fg': '#ffffff',
+        '--git-graph-emphasis-fg': '#1677ff',
+        '--git-graph-emphasis-fg-hover': '#1677ff',
     };
     applyBranchColourVars(cssVars, branchColours);
 

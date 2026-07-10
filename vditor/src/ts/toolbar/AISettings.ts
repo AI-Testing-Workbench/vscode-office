@@ -1,4 +1,11 @@
-import { buildAIPromptsHTML, buildAIModelsHTML, nameFromUrl, SETTINGS_PANEL_CLASS } from "../ui/settingsPanel";
+import {
+    buildAIPromptsHTML,
+    buildAIModelsHTML,
+    hasOpenAISettingsModelForm,
+    hasOpenAISettingsPromptForm,
+    nameFromUrl,
+    SETTINGS_PANEL_CLASS,
+} from "../ui/settingsPanel";
 import { getEventName } from "../util/compatibility";
 import { MenuItem } from "./MenuItem";
 import { toggleSubMenu } from "./setToolbar";
@@ -7,8 +14,7 @@ import {
     getAIModels, setAIModels,
 } from "../util/globalLocalStorageSettings";
 import { showConfirm } from "../util/confirm";
-import { telemetry, telemetryToolbar } from "../util/telemetry";
-
+import { telemetry } from "../util/telemetry";
 export class AISettings extends MenuItem {
     public element: HTMLElement;
     private vditor: IVditor;
@@ -23,12 +29,11 @@ export class AISettings extends MenuItem {
         panelElement.innerHTML = this.buildPanelHTML();
         this.element.appendChild(panelElement);
 
-        actionBtn.addEventListener(getEventName(), () => {
-            const willOpen = panelElement.style.display !== "block";
-            panelElement.innerHTML = this.buildPanelHTML();
-            if (willOpen) {
-                telemetryToolbar(this.vditor, "ai-settings");
+        actionBtn.addEventListener(getEventName(), (_event: Event) => {
+            if (hasOpenAISettingsPromptForm(panelElement) || hasOpenAISettingsModelForm(panelElement)) {
+                return;
             }
+            panelElement.innerHTML = this.buildPanelHTML();
         }, true);
 
         panelElement.addEventListener(getEventName(), (event: MouseEvent & { target: HTMLElement }) => {
@@ -37,6 +42,7 @@ export class AISettings extends MenuItem {
                 delete panelElement.dataset.editingPromptId;
                 clearInputs(panelElement, ["[data-ai-add-name]", "[data-ai-add-content]"]);
                 toggleAddRow(panelElement, "[data-ai-add-row]", "[data-ai-new-prompt]", true);
+                scrollAddRowIntoView(panelElement, "[data-ai-add-row]");
                 panelElement.querySelector<HTMLInputElement>("[data-ai-add-name]")?.focus();
                 stop(event); return;
             }
@@ -76,6 +82,7 @@ export class AISettings extends MenuItem {
                 if (nameEl) nameEl.value = p.name;
                 if (contentEl) contentEl.value = p.content;
                 toggleAddRow(panelElement, "[data-ai-add-row]", "[data-ai-new-prompt]", true);
+                scrollAddRowIntoView(panelElement, "[data-ai-add-row]");
                 nameEl?.focus();
                 stop(event); return;
             }
@@ -99,6 +106,7 @@ export class AISettings extends MenuItem {
                 const formatEl = panelElement.querySelector<HTMLSelectElement>("[data-ai-add-model-format]");
                 if (formatEl) formatEl.value = "auto";
                 toggleAddRow(panelElement, "[data-ai-add-model-row]", "[data-ai-new-model]", true);
+                scrollAddRowIntoView(panelElement, "[data-ai-add-model-row]");
                 panelElement.querySelector<HTMLInputElement>("[data-ai-add-model-url]")?.focus();
                 stop(event); return;
             }
@@ -148,6 +156,7 @@ export class AISettings extends MenuItem {
                 if (modelEl) modelEl.value = m.model || "";
                 if (formatEl) formatEl.value = m.format || "auto";
                 toggleAddRow(panelElement, "[data-ai-add-model-row]", "[data-ai-new-model]", true);
+                scrollAddRowIntoView(panelElement, "[data-ai-add-model-row]");
                 urlEl?.focus();
                 stop(event); return;
             }
@@ -171,6 +180,10 @@ export class AISettings extends MenuItem {
     private buildPanelHTML() {
         const i18n = window.VditorI18n;
         return `<div class="${SETTINGS_PANEL_CLASS}">
+            <div class="${SETTINGS_PANEL_CLASS}__ai-hint">
+                <span class="codicon codicon-info"></span>
+                <span>${i18n.aiHint ?? 'Right-click to use <b>AI Polish</b>'}</span>
+            </div>
             <div class="${SETTINGS_PANEL_CLASS}__section">
                 <div class="${SETTINGS_PANEL_CLASS}__title">${i18n.aiPrompts}</div>
                 ${buildAIPromptsHTML()}
@@ -194,6 +207,17 @@ function clearInputs(panel: HTMLElement, selectors: string[]) {
     selectors.forEach(sel => {
         const el = panel.querySelector<HTMLInputElement | HTMLTextAreaElement>(sel);
         if (el) el.value = "";
+    });
+}
+
+function scrollAddRowIntoView(panel: HTMLElement, rowSelector: string) {
+    requestAnimationFrame(() => {
+        const settingsPanel = panel.querySelector<HTMLElement>(`.${SETTINGS_PANEL_CLASS}`);
+        const row = panel.querySelector<HTMLElement>(rowSelector);
+        if (!settingsPanel || !row) {
+            return;
+        }
+        row.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
 }
 

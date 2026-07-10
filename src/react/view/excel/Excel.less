@@ -15,8 +15,17 @@ body:has(.excel-app) .ant-message:has(.excel-save-success-message) {
     transform: translateX(-50%) !important;
 }
 
+body:has(.excel-app) {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
 .excel-viewer {
+    width: 100vw;
+    height: 100vh;
     min-height: 100vh;
+    overflow: hidden;
     background-color: white;
     font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
     font-size: var(--vscode-font-size, 13px);
@@ -362,13 +371,13 @@ body:has(.excel-app) .ant-message:has(.excel-save-success-message) {
     }
 
     .dark-mode-toggle {
+        width: 28px;
+        height: 28px;
         flex-shrink: 0;
-        width: 32px;
-        height: 32px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border: 1px solid rgba(128, 128, 128, 0.4);
+        border: 1px solid rgba(128, 128, 128, 0.35);
         border-radius: 6px;
         background-color: rgba(255, 255, 255, 0.85);
         color: #2c3e50;
@@ -377,6 +386,14 @@ body:has(.excel-app) .ant-message:has(.excel-save-success-message) {
         &:hover {
             background-color: rgba(0, 0, 0, 0.06);
         }
+    }
+
+    .excel-footer-actions .dark-mode-toggle {
+        position: fixed;
+        top: 7px;
+        right: 10px;
+        bottom: auto;
+        z-index: 1001;
     }
 
     .excel-load-error {
@@ -498,8 +515,28 @@ body:has(.excel-app) .ant-message:has(.excel-save-success-message) {
         background: var(--excel-selection);
     }
 
+    .x-spreadsheet-selector.formula-reference-mode {
+        .x-spreadsheet-selector-area {
+            border-color: var(--vscode-textLink-foreground, #3794ff);
+            background: color-mix(in srgb, var(--vscode-textLink-foreground, #3794ff) 18%, transparent);
+        }
+
+        .x-spreadsheet-selector-corner {
+            background: var(--vscode-textLink-foreground, #3794ff);
+        }
+    }
+
     .x-spreadsheet-editor .x-spreadsheet-editor-area {
         border-color: var(--excel-selection);
+    }
+
+    .x-spreadsheet-editor.formula-target-mode .x-spreadsheet-editor-area {
+        border-color: var(--excel-selection);
+        box-shadow:
+            0 0 0 2px var(--excel-cell-bg, #ffffff),
+            0 0 0 5px color-mix(in srgb, var(--excel-selection) 34%, transparent),
+            0 0 14px color-mix(in srgb, var(--excel-selection) 42%, transparent);
+        background-color: color-mix(in srgb, var(--excel-selection) 8%, var(--excel-cell-bg, #ffffff));
     }
 
     .x-spreadsheet-bottombar {
@@ -527,6 +564,7 @@ body:has(.excel-app) .ant-message:has(.excel-save-success-message) {
     }
 }
 
+// VS Code adaptive theme tokens (body.office-dark follows editor luminance in adaptive mode)
 body.office-dark .excel-viewer {
     --excel-bg: var(--vscode-editor-background, #1e1e1e);
     --excel-fg: var(--vscode-editor-foreground, #cccccc);
@@ -816,7 +854,7 @@ body.office-dark .excel-viewer {
         }
     }
 
-    // Dark mode pill-style sheet tabs
+    // VS Code adaptive theme — pill-style sheet tabs
     .x-spreadsheet-bottombar {
         height: 38px;
         align-items: center;
@@ -865,15 +903,22 @@ body.office-dark .excel-viewer {
             align-items: center;
             justify-content: center;
             margin-right: 6px;
-            opacity: 0.55;
 
             .x-spreadsheet-icon {
                 margin: 0;
             }
 
+            .x-spreadsheet-icon-img {
+                filter: brightness(0) invert(1);
+                opacity: 0.55;
+            }
+
             &:hover {
                 background: var(--excel-hover);
-                opacity: 0.85;
+
+                .x-spreadsheet-icon-img {
+                    opacity: 0.85;
+                }
             }
         }
     }
@@ -1057,7 +1102,7 @@ body.office-dark .excel-viewer {
     }
 
     .dark-mode-toggle {
-        background-color: var(--vscode-editorWidget-background, #252526);
+        background-color: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-sideBarSectionHeader-background, #252526));
         color: var(--vscode-editor-foreground, #cccccc);
         border-color: var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.45));
 
@@ -1337,7 +1382,7 @@ body.office-dark {
     }
 }
 
-// Dark mode additions for Apple-style shapes & blur
+// VS Code adaptive theme additions for Apple-style shapes
 body.office-dark .excel-viewer {
     .x-spreadsheet-tooltip {
         background: rgba(50, 50, 50, 0.9);
@@ -1346,10 +1391,11 @@ body.office-dark .excel-viewer {
 
     .x-spreadsheet-contextmenu {
         border-radius: 12px;
-        border: 0.5px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
-        background: rgba(40, 40, 40, 0.88);
-        backdrop-filter: blur(24px) saturate(180%);
+        border: none;
+        box-shadow: 0 1px 4px 1px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.2));
+        background: var(--vscode-menu-background, var(--excel-widget-bg));
+        color: var(--vscode-menu-foreground, var(--excel-widget-fg));
+        backdrop-filter: none;
         padding: 6px;
         overflow-y: auto;
         overflow-x: hidden;
@@ -1361,6 +1407,20 @@ body.office-dark .excel-viewer {
         &::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.2);
             border-radius: 2px;
+        }
+
+        .x-spreadsheet-item {
+            color: var(--vscode-menu-foreground, var(--excel-fg));
+
+            &:hover,
+            &.active {
+                background: var(--vscode-menu-selectionBackground, var(--excel-hover));
+                color: var(--vscode-menu-selectionForeground, var(--excel-fg));
+            }
+
+            &.divider {
+                border-bottom-color: var(--vscode-menu-separatorBackground, var(--excel-border));
+            }
         }
     }
 
@@ -1506,7 +1566,6 @@ body.office-dark .excel-viewer {
     width: 340px;
     background: rgba(248, 249, 250, 0.92);
     backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
     border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { MouseEvent } from 'react';
 import type { GitFileChange } from '../types';
 import { fileTouchesPath } from '../util/repoPath';
@@ -29,6 +29,11 @@ import {
 
 export type FileChangeActionPayload = Record<string, unknown> & { action: string };
 
+const FILE_CHANGE_BADGE_LABEL: Record<string, string> = {
+    A: 'A',
+    R: 'R',
+};
+
 interface CommitDetailFileViewProps {
     repo: string;
     commitHash: string;
@@ -41,16 +46,18 @@ interface CommitDetailFileViewProps {
 }
 
 function FileStats({ change }: { change: GitFileChange }) {
-    if (change.additions === null && change.deletions === null) {
+    const additions = change.additions ?? 0;
+    const deletions = change.deletions ?? 0;
+    if (additions <= 0 && deletions <= 0) {
         return null;
     }
     return (
         <span className="git-graph-cdv-file-stats">
-            {change.additions !== null && (
-                <span className="git-graph-status-added">+{change.additions}</span>
+            {additions > 0 && (
+                <span className="git-graph-status-added">+{additions}</span>
             )}
-            {change.deletions !== null && (
-                <span className="git-graph-status-deleted">-{change.deletions}</span>
+            {deletions > 0 && (
+                <span className="git-graph-status-deleted">-{deletions}</span>
             )}
         </span>
     );
@@ -80,6 +87,7 @@ function FileChangeRow({
     onContextMenu: (event: MouseEvent, change: GitFileChange) => void;
 }) {
     const statusClass = FILE_CHANGE_STATUS_CLASS[change.type] ?? '';
+    const badgeLabel = FILE_CHANGE_BADGE_LABEL[change.type];
     const isCurrent = Boolean(
         relPath && fileTouchesPath(relPath, change.oldFilePath, change.newFilePath),
     );
@@ -114,6 +122,13 @@ function FileChangeRow({
                 className="git-graph-cdv-file-icon"
             />
             <span className="git-graph-cdv-file-name" title={title}>{label}</span>
+            {badgeLabel && (
+                <span className={`git-graph-cdv-file-badge git-graph-cdv-file-badge-${change.type.toLowerCase()}`} aria-label={`Status ${badgeLabel}`}>
+                    {badgeLabel}
+                </span>
+            )}
+            <FileStats change={change} />
+            <span className="git-graph-cdv-file-action-spacer" aria-hidden />
             <span className="git-graph-cdv-file-actions">
                 {showRevision && (
                     <button
@@ -144,7 +159,6 @@ function FileChangeRow({
                     </button>
                 )}
             </span>
-            <FileStats change={change} />
         </div>
     );
 }
@@ -230,22 +244,36 @@ export default function CommitDetailFileView({
 }: CommitDetailFileViewProps) {
     const tree = useMemo(() => buildFileTree(fileChanges), [fileChanges]);
     const flatChanges = useMemo(() => sortFlatFileChanges(fileChanges), [fileChanges]);
-    const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-
-    useEffect(() => {
-        setExpanded(new Set(collectFolderPaths(tree)));
-    }, [tree]);
+    const defaultExpanded = useMemo(() => new Set(collectFolderPaths(tree)), [tree]);
+    const [userExpanded, setUserExpanded] = useState<Set<string>>(() => new Set());
+    const [userCollapsed, setUserCollapsed] = useState<Set<string>>(() => new Set());
+    const expanded = useMemo(() => {
+        const next = new Set(defaultExpanded);
+        for (const path of userExpanded) {
+            next.add(path);
+        }
+        for (const path of userCollapsed) {
+            next.delete(path);
+        }
+        return next;
+    }, [defaultExpanded, userCollapsed, userExpanded]);
 
     const toggleFolder = (path: string) => {
-        setExpanded((prev) => {
-            const next = new Set(prev);
-            if (next.has(path)) {
+        if (expanded.has(path)) {
+            setUserExpanded((prev) => {
+                const next = new Set(prev);
                 next.delete(path);
-            } else {
-                next.add(path);
-            }
+                return next;
+            });
+            setUserCollapsed((prev) => new Set(prev).add(path));
+            return;
+        }
+        setUserCollapsed((prev) => {
+            const next = new Set(prev);
+            next.delete(path);
             return next;
         });
+        setUserExpanded((prev) => new Set(prev).add(path));
     };
 
     if (viewMode === 'flat') {

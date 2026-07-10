@@ -20,10 +20,14 @@ import {
     LINE_HEIGHT_MAX,
     FONT_FAMILY_KEY,
     FONT_FAMILY_OPTIONS,
+    CODE_FONT_FAMILY_KEY,
     BOLD_COLOR_KEY,
-    BOLD_COLOR_OPTIONS,
+    getBoldColorOptions,
+    applyBoldColorSetting,
+    normalizeBoldColorValue,
     PAGE_WIDTH_KEY,
     PAGE_WIDTH_OPTIONS,
+    applyPageWidthSetting,
     IMAGE_MAX_WIDTH_KEY,
     IMAGE_MAX_HEIGHT_KEY,
     IMAGE_MAX_WIDTH_DEFAULT,
@@ -32,17 +36,67 @@ import {
     IMAGE_MAX_WIDTH_MAX,
     IMAGE_MAX_HEIGHT_MIN,
     IMAGE_MAX_HEIGHT_MAX,
+    CODE_BLOCK_MAX_HEIGHT_KEY,
+    CODE_BLOCK_MAX_HEIGHT_DEFAULT,
+    CODE_BLOCK_MAX_HEIGHT_OPTIONS,
     getGlobalLocalStorageSetting,
     setGlobalLocalStorageSetting,
     resetGlobalSettings,
     applyEditorSettings,
+    applyTypewriterModeClass,
+    TYPEWRITER_MODE_KEY,
 } from "../util/globalLocalStorageSettings";
-import { telemetry } from "../util/telemetry";
+import {getCodeFontFamilyOptions} from "../util/fontFamilyOptions";
 
-const DROPDOWN_OPTIONS_MAP: Record<string, readonly { label: string; value: string }[]> = {
+const DROPDOWN_OPTIONS_MAP: Record<string, readonly { label: string; value: string }[] | (() => { label: string; value: string }[])> = {
     [FONT_FAMILY_KEY]: FONT_FAMILY_OPTIONS,
-    [BOLD_COLOR_KEY]: BOLD_COLOR_OPTIONS,
+    [CODE_FONT_FAMILY_KEY]: getCodeFontFamilyOptions,
+    [BOLD_COLOR_KEY]: getBoldColorOptions,
     [PAGE_WIDTH_KEY]: PAGE_WIDTH_OPTIONS,
+    [CODE_BLOCK_MAX_HEIGHT_KEY]: CODE_BLOCK_MAX_HEIGHT_OPTIONS,
+};
+
+const resolveDropdownOptions = (key: string) => {
+    const options = DROPDOWN_OPTIONS_MAP[key];
+    return typeof options === "function" ? options() : options;
+};
+
+const getDropdownCurrentValue = (key: string, fallbackValue: string) => {
+    if (key === BOLD_COLOR_KEY) {
+        return normalizeBoldColorValue(getGlobalLocalStorageSetting<string>(key));
+    }
+    if (key === CODE_BLOCK_MAX_HEIGHT_KEY) {
+        return getGlobalLocalStorageSetting<string>(key, CODE_BLOCK_MAX_HEIGHT_DEFAULT) ?? CODE_BLOCK_MAX_HEIGHT_DEFAULT;
+    }
+    return getGlobalLocalStorageSetting<string>(key, fallbackValue) ?? fallbackValue;
+};
+
+const parsePxValue = (value: string): number | undefined => {
+    const match = value.trim().match(/^(\d+(?:\.\d+)?)px$/i);
+    if (!match) {
+        return undefined;
+    }
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const resolveCurrentFontSize = (vditor: IVditor, isUI: boolean, fallback: number): number => {
+    const key = isUI ? UI_FONT_SIZE_KEY : EDITOR_FONT_SIZE_KEY;
+    const stored = getGlobalLocalStorageSetting<number>(key);
+    if (stored !== undefined) {
+        return stored;
+    }
+
+    if (isUI) {
+        return parsePxValue(getComputedStyle(vditor.element).getPropertyValue("--ui-font-size")) ?? fallback;
+    }
+
+    const content = vditor.element.querySelector<HTMLElement>(".vditor-ir")
+        || vditor.element.querySelector<HTMLElement>(".vditor-wysiwyg")
+        || vditor.element;
+    return parsePxValue(getComputedStyle(vditor.element).getPropertyValue("--editor-font-size"))
+        ?? parsePxValue(getComputedStyle(content).fontSize)
+        ?? fallback;
 };
 
 export class Settings extends MenuItem {
@@ -63,20 +117,18 @@ export class Settings extends MenuItem {
         floatingMenu.hidden = true;
         document.body.appendChild(floatingMenu);
 
-        let activeDropdownKey = "";
         let activeTrigger: HTMLElement | null = null;
 
         const closeFloatingMenu = () => {
             floatingMenu.hidden = true;
             activeTrigger?.classList.remove(`${SETTINGS_PANEL_CLASS}__dropdown-trigger--open`);
             activeTrigger = null;
-            activeDropdownKey = "";
         };
 
         const openFloatingMenu = (trigger: HTMLElement, key: string) => {
-            const options = DROPDOWN_OPTIONS_MAP[key];
+            const options = resolveDropdownOptions(key);
             if (!options) return;
-            const currentValue = getGlobalLocalStorageSetting<string>(key, options[0].value) ?? options[0].value;
+            const currentValue = getDropdownCurrentValue(key, options[0].value);
 
             floatingMenu.innerHTML = options.map(o =>
                 `<button type="button" class="${SETTINGS_PANEL_CLASS}__dropdown-option${o.value === currentValue ? ` ${SETTINGS_PANEL_CLASS}__dropdown-option--current` : ""}" data-value="${o.value}" data-dropdown-key="${key}">${o.label}</button>`
@@ -88,14 +140,16 @@ export class Settings extends MenuItem {
             floatingMenu.style.left = `${rect.left}px`;
             floatingMenu.style.minWidth = `${rect.width}px`;
 
-            activeDropdownKey = key;
             activeTrigger = trigger;
             trigger.classList.add(`${SETTINGS_PANEL_CLASS}__dropdown-trigger--open`);
         };
 
         // Close floating menu on outside click
         const onDocumentClick = (e: MouseEvent) => {
-            if (!floatingMenu.hidden && !floatingMenu.contains(e.target as Node) && e.target !== activeTrigger) {
+            const target = e.target as Node;
+            if (!floatingMenu.hidden
+                && !floatingMenu.contains(target)
+                && !activeTrigger?.contains(target)) {
                 closeFloatingMenu();
             }
         };
@@ -108,15 +162,24 @@ export class Settings extends MenuItem {
             const key = option.getAttribute("data-dropdown-key") || "";
             const value = option.getAttribute("data-value") || "";
             const label = option.textContent || "";
-            setGlobalLocalStorageSetting(key, value);
+            const storedValue = key === CODE_BLOCK_MAX_HEIGHT_KEY && value === CODE_BLOCK_MAX_HEIGHT_DEFAULT
+                ? undefined
+                : value;
+            setGlobalLocalStorageSetting(key, storedValue);
             if (key === FONT_FAMILY_KEY) vditor.element.style.setProperty("--editor-font-family", value);
+            else if (key === CODE_FONT_FAMILY_KEY) {
+                if (value === "inherit") vditor.element.style.removeProperty("--code-font-family");
+                else vditor.element.style.setProperty("--code-font-family", value);
+            }
             else if (key === BOLD_COLOR_KEY) {
-                if (value === "inherit") vditor.element.style.removeProperty("--bold-color");
-                else vditor.element.style.setProperty("--bold-color", value);
+                applyBoldColorSetting(vditor.element, value);
             }
             else if (key === PAGE_WIDTH_KEY) {
-                if (value === "100%") vditor.element.style.removeProperty("--vditor-page-width");
-                else vditor.element.style.setProperty("--vditor-page-width", value);
+                applyPageWidthSetting(vditor.element, value);
+            }
+            else if (key === CODE_BLOCK_MAX_HEIGHT_KEY) {
+                if (value === CODE_BLOCK_MAX_HEIGHT_DEFAULT) vditor.element.style.removeProperty("--cm-block-max-height");
+                else vditor.element.style.setProperty("--cm-block-max-height", value);
             }
             // update trigger label
             const trigger = panelElement.querySelector(`[data-dropdown-key="${key}"]`) as HTMLElement | null;
@@ -127,12 +190,8 @@ export class Settings extends MenuItem {
         });
 
         actionBtn.addEventListener(getEventName(), () => {
-            const willOpen = panelElement.style.display !== "block";
             closeFloatingMenu();
             refreshSettingsPanel(panelElement, vditor);
-            if (willOpen) {
-                telemetry(vditor, "markdown.settings.open");
-            }
         }, true);
 
         panelElement.addEventListener(getEventName(), (event: MouseEvent & { target: HTMLElement }) => {
@@ -154,7 +213,7 @@ export class Settings extends MenuItem {
                 const key = row.getAttribute("data-font-key") || "";
                 const isUI = key === UI_FONT_SIZE_KEY;
                 const defaultVal = isUI ? UI_FONT_SIZE_DEFAULT : EDITOR_FONT_SIZE_DEFAULT;
-                const current = getGlobalLocalStorageSetting<number>(key, defaultVal) ?? defaultVal;
+                const current = resolveCurrentFontSize(vditor, isUI, defaultVal);
                 const step = parseInt(stepBtn.getAttribute("data-step") || "0", 10);
                 const next = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, current + step));
                 setGlobalLocalStorageSetting(key, next);
@@ -183,11 +242,28 @@ export class Settings extends MenuItem {
                 return;
             }
 
+            // Toggle switch
+            const toggleTrigger = event.target.closest("[data-toggle-trigger]") as HTMLElement | null;
+            if (toggleTrigger) {
+                const key = toggleTrigger.getAttribute("data-toggle-key") || "";
+                const next = !toggleTrigger.classList.contains(`${SETTINGS_PANEL_CLASS}__toggle--on`);
+                toggleTrigger.classList.toggle(`${SETTINGS_PANEL_CLASS}__toggle--on`, next);
+                toggleTrigger.setAttribute("aria-checked", String(next));
+                setGlobalLocalStorageSetting(key, next ? true : undefined);
+                if (key === TYPEWRITER_MODE_KEY) {
+                    applyTypewriterModeClass(vditor.element, next);
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+
             // Dropdown trigger
             const dropdownTrigger = event.target.closest(`[data-dropdown-trigger]`) as HTMLElement | null;
             if (dropdownTrigger) {
                 const key = dropdownTrigger.getAttribute("data-dropdown-key") || "";
-                if (activeDropdownKey === key) {
+                const isSameDropdownOpen = activeTrigger === dropdownTrigger && !floatingMenu.hidden;
+                if (isSameDropdownOpen) {
                     closeFloatingMenu();
                 } else {
                     closeFloatingMenu();
@@ -222,10 +298,21 @@ export class Settings extends MenuItem {
                 return;
             }
 
+            // Edit settings file
+            if (event.target.closest("[data-edit-settings]")) {
+                const fn = vditor.options.onEditSettings;
+                if (typeof fn === "function") {
+                    fn();
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+
             // Reset settings
             if (event.target.closest("[data-reset-settings]")) {
                 resetGlobalSettings();
-                for (const prop of ["--ui-font-size", "--editor-font-size", "--editor-line-height", "--editor-font-family", "--bold-color", "--vditor-page-width", "--vditor-image-max-width", "--vditor-image-max-height"]) {
+                for (const prop of ["--ui-font-size", "--editor-font-size", "--editor-line-height", "--editor-font-family", "--code-font-family", "--bold-color", "--vditor-page-width", "--vditor-image-max-width", "--vditor-image-max-height"]) {
                     vditor.element.style.removeProperty(prop);
                 }
                 applyEditorSettings(vditor.element);

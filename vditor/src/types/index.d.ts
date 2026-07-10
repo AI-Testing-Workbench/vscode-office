@@ -6,6 +6,20 @@ interface Window {
     VditorI18n: ITips;
 }
 
+/** CSS Custom Highlight API */
+declare class Highlight {
+    constructor(...ranges: Range[]);
+}
+
+interface CSSHighlights {
+    set(name: string, highlight: Highlight): void;
+    delete(name: string): void;
+}
+
+interface CSS {
+    readonly highlights: CSSHighlights;
+}
+
 interface IObject {
     [key: string]: string;
 }
@@ -457,6 +471,10 @@ interface IAIPolishOptions {
     goal?: string;
     prompt?: string;
     engine?: "vscode" | "custom";
+    /** auto = follow UI language */
+    outputLanguage?: "auto" | "en_US" | "zh_CN" | "zh_TW" | "ja_JP" | "ko_KR" | "ru_RU";
+    /** Current editor UI language (vditor.options.lang) */
+    uiLanguage?: string;
     vscodeModelId?: string;
     customUrl?: string;
     customKey?: string;
@@ -464,6 +482,11 @@ interface IAIPolishOptions {
     /** auto | openai | anthropic | gemini | ollama */
     customApiFormat?: "auto" | "openai" | "anthropic" | "gemini" | "ollama";
 }
+
+type ViewerSettingsExport = {
+    globalSettings: Record<string, boolean | number | string | undefined>;
+    aiPreferences: Record<string, string>;
+};
 
 interface IOptions {
     /** RTL */
@@ -476,6 +499,8 @@ interface IOptions {
     value?: string;
     /** 是否显示日志。默认值: false */
     debugger?: boolean;
+    /** 是否打印 WYSIWYG input SpinVditorDOM 前后的 HTML。默认值: false */
+    wysiwygInputPerf?: boolean;
     /** 编辑器总高度。默认值: 'auto' */
     height?: number | string;
     /** 编辑器最小高度 */
@@ -527,6 +552,12 @@ interface IOptions {
     theme?: ITheme;
     /** Markdown 编辑器主题。默认值: 'Auto' */
     editorTheme?: IEditorTheme | string;
+    /** 最后一次选择的非 Auto Markdown 编辑器主题。默认值: 'Light' */
+    lastNonAutoEditorTheme?: IEditorTheme | string;
+    /** 最后一次选择的亮色 Markdown 编辑器主题。默认值: 'Light' */
+    lastLightEditorTheme?: IEditorTheme | string;
+    /** 最后一次选择的暗色 Markdown 编辑器主题。默认值: 'One Dark' */
+    lastDarkEditorTheme?: IEditorTheme | string;
     /** CodeMirror 代码块主题。默认值跟随预览代码主题 */
     codeMirrorTheme?: ICodeMirrorTheme | string;
     /** Mermaid 图表主题。默认值: 'Auto' */
@@ -602,6 +633,12 @@ interface IOptions {
 
     /** 遥测事件回调；配置后 vditor 内部通过 telemetry() 上报 */
     onTelemetry?(event: string, properties?: Record<string, string | number | boolean>): void;
+
+    /** 全局设置变更后触发（仅在配置文件同步启用时） */
+    onSettingsChange?(settings: ViewerSettingsExport): void;
+
+    /** 点击编辑配置文件按钮时触发 */
+    onEditSettings?(): void;
 }
 
 interface IEChart {
@@ -616,6 +653,10 @@ interface IVditor {
     originalInnerHTML: string;
     lute: Lute | undefined;
     currentMode: IEditMode;
+    /** 首次加载时的 Markdown 字符数，用于计算 history debounce 放行倍数 */
+    documentInitialLength?: number;
+    /** recordHistory 相对 undoDelay 的放行倍数；-1 表示超大文档，仅 debounce 不强制 flush */
+    historyMaxWaitFactor?: number;
     outline: {
         element: HTMLElement,
         init(vditor: IVditor): void,

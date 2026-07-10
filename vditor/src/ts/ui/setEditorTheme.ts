@@ -1,5 +1,7 @@
 import {refreshMermaidTheme} from "../markdown/mermaidRender";
 import {
+    DEFAULT_DARK_EDITOR_THEME,
+    DEFAULT_LIGHT_EDITOR_THEME,
     EDITOR_DARK_THEMES,
     EDITOR_THEME_IDS,
     resolveEditorTheme,
@@ -7,7 +9,13 @@ import {
 import {resolveMermaidTheme} from "./setMermaidTheme";
 import {updateEditorThemeToggle} from "./editorThemeToggle";
 import {initMobileOutlineMenu, prepareEditorThemeMobileOutline} from "./mobileOutlineMenu";
-import {telemetry} from "../util/telemetry";
+import {
+    getGlobalLocalStorageSetting,
+    LAST_DARK_EDITOR_THEME_KEY,
+    LAST_LIGHT_EDITOR_THEME_KEY,
+    LAST_NON_AUTO_EDITOR_THEME_KEY,
+    setGlobalLocalStorageSetting,
+} from "../util/globalLocalStorageSettings";
 
 const LEGACY_THEME_LINK_ID = "vditor-editor-theme-css";
 
@@ -24,9 +32,28 @@ const isVscodeDarkTheme = () => {
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
+const resolveStoredManualTheme = (
+    key: string,
+    fallback: string,
+    legacyFallback: string,
+) => {
+    const stored = resolveEditorTheme(
+        getGlobalLocalStorageSetting<string>(key, fallback) ?? fallback,
+    );
+    return stored === "Auto" ? legacyFallback : stored;
+};
+
 export const syncEditorDarkClass = (element: HTMLElement, theme: string) => {
     const useDark = theme === "Auto" ? isVscodeDarkTheme() : EDITOR_DARK_THEMES.has(theme);
     element.classList.toggle("vditor--dark", useDark);
+};
+
+export const resolvePreferredManualEditorTheme = (vditor: IVditor, preferDark: boolean) => {
+    const fallback = preferDark ? DEFAULT_DARK_EDITOR_THEME : DEFAULT_LIGHT_EDITOR_THEME;
+    const candidate = preferDark
+        ? resolveEditorTheme(vditor.options.lastDarkEditorTheme || fallback)
+        : resolveEditorTheme(vditor.options.lastLightEditorTheme || fallback);
+    return candidate === "Auto" ? fallback : candidate;
 };
 
 const applyEditorThemeAttribute = (vditor: IVditor, theme: string) => {
@@ -65,6 +92,17 @@ export const setEditorTheme = (
         return;
     }
     const previous = resolveEditorTheme(vditor.options.editorTheme);
+    if (resolved !== "Auto") {
+        vditor.options.lastNonAutoEditorTheme = resolved;
+        setGlobalLocalStorageSetting(LAST_NON_AUTO_EDITOR_THEME_KEY, resolved);
+        if (EDITOR_DARK_THEMES.has(resolved)) {
+            vditor.options.lastDarkEditorTheme = resolved;
+            setGlobalLocalStorageSetting(LAST_DARK_EDITOR_THEME_KEY, resolved);
+        } else {
+            vditor.options.lastLightEditorTheme = resolved;
+            setGlobalLocalStorageSetting(LAST_LIGHT_EDITOR_THEME_KEY, resolved);
+        }
+    }
 
     applyEditorThemeAttribute(vditor, resolved);
     vditor.options.editorTheme = resolved;
@@ -76,12 +114,6 @@ export const setEditorTheme = (
     }
 
     if (notify) {
-        if (resolved !== previous) {
-            const event = telemetryKind === "toggle"
-                ? "markdown.theme.toggle"
-                : "markdown.theme.editor";
-            telemetry(vditor, event, { theme: resolved });
-        }
         if (vditor.options.changeEditorTheme) {
             vditor.options.changeEditorTheme(resolved);
         }
@@ -89,6 +121,21 @@ export const setEditorTheme = (
 };
 
 export const initEditorTheme = (vditor: IVditor) => {
+    const storedLastTheme = resolveEditorTheme(
+        getGlobalLocalStorageSetting<string>(LAST_NON_AUTO_EDITOR_THEME_KEY, DEFAULT_LIGHT_EDITOR_THEME) ?? DEFAULT_LIGHT_EDITOR_THEME,
+    );
+    const normalizedLastTheme = storedLastTheme === "Auto" ? DEFAULT_LIGHT_EDITOR_THEME : storedLastTheme;
+    vditor.options.lastNonAutoEditorTheme = normalizedLastTheme;
+    vditor.options.lastLightEditorTheme = resolveStoredManualTheme(
+        LAST_LIGHT_EDITOR_THEME_KEY,
+        DEFAULT_LIGHT_EDITOR_THEME,
+        EDITOR_DARK_THEMES.has(normalizedLastTheme) ? DEFAULT_LIGHT_EDITOR_THEME : normalizedLastTheme,
+    );
+    vditor.options.lastDarkEditorTheme = resolveStoredManualTheme(
+        LAST_DARK_EDITOR_THEME_KEY,
+        DEFAULT_DARK_EDITOR_THEME,
+        EDITOR_DARK_THEMES.has(normalizedLastTheme) ? normalizedLastTheme : DEFAULT_DARK_EDITOR_THEME,
+    );
     const theme = resolveEditorTheme(vditor.options.editorTheme);
     setEditorTheme(vditor, theme, false);
     initMobileOutlineMenu(vditor);

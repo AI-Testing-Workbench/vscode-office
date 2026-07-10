@@ -4,6 +4,7 @@ import type { FormField, PromptStep, PromptSubmitValue } from '../util/gitAction
 import type { PopupAnchor } from '../util/commitDetailPopup';
 import { AnchoredDialog, AnchoredDialogActions } from './AnchoredDialog';
 import DialogOverlay from './DialogOverlay';
+import ToolbarTooltip from './ToolbarTooltip';
 
 interface ActionDialogProps {
     step: PromptStep;
@@ -16,6 +17,10 @@ interface ActionDialogProps {
 
 function abbrevHash(hash: string): string {
     return hash === '*' ? '*' : hash.substring(0, 8);
+}
+
+function DialogEmphasis({ children }: { children: ReactNode }) {
+    return <span className="git-graph-dialog-emphasis">{children}</span>;
 }
 
 function isDangerStep(step: PromptStep): boolean {
@@ -39,15 +44,27 @@ function buildInitialFormValues(fields: FormField[]): Record<string, string> {
     return initial;
 }
 
-function renderFieldInfo(info?: string) {
+function FieldInfo({ info }: { info?: string }) {
     if (!info) {
         return null;
     }
     return (
-        <span className="git-graph-anchored-dialog-info" title={info}>
-            <span className="codicon codicon-info" aria-hidden />
-        </span>
+        <ToolbarTooltip content={info} wrap pinOnClick>
+            <span
+                className="git-graph-anchored-dialog-info"
+                onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }}
+            >
+                <span className="codicon codicon-info" aria-hidden />
+            </span>
+        </ToolbarTooltip>
     );
+}
+
+function renderFieldInfo(info?: string) {
+    return <FieldInfo info={info} />;
 }
 
 function renderAnchoredFormFields(
@@ -142,14 +159,70 @@ function renderAnchoredFormFields(
     );
 }
 
+function renderPushRemoteCheckboxList(
+    remoteFields: FormField[],
+    otherFields: FormField[],
+    formValues: Record<string, string>,
+    onFormValuesChange: (values: Record<string, string>) => void,
+    onSubmit: (values: Record<string, string>) => void,
+    isExecuting: boolean,
+) {
+    const submitWithRemote = (fieldId: string) => {
+        if (isExecuting) {
+            return;
+        }
+        const newValues = { ...formValues };
+        for (const field of remoteFields) {
+            newValues[field.id] = field.id === fieldId ? 'yes' : 'no';
+        }
+        onSubmit(newValues);
+    };
+
+    return (
+        <>
+            <div className="git-graph-anchored-dialog-option-list accent-mode accent-push">
+                {remoteFields.map((field) => (
+                    <label
+                        key={field.id}
+                        className={`git-graph-anchored-dialog-option git-graph-anchored-dialog-option--checkbox${formValues[field.id] === 'yes' ? ' selected' : ''}`}
+                        onDoubleClick={(e) => {
+                            e.preventDefault();
+                            submitWithRemote(field.id);
+                        }}
+                    >
+                        <input
+                            type="checkbox"
+                            className="git-graph-anchored-dialog-option-check"
+                            checked={formValues[field.id] === 'yes'}
+                            onChange={(e) => {
+                                onFormValuesChange({
+                                    ...formValues,
+                                    [field.id]: e.target.checked ? 'yes' : 'no',
+                                });
+                            }}
+                        />
+                        <span className="git-graph-anchored-dialog-option-label">{field.label}</span>
+                    </label>
+                ))}
+            </div>
+            {otherFields.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--git-graph-border, rgba(128,128,128,0.2))', marginTop: 6, paddingTop: 6 }}>
+                    {renderAnchoredCheckboxList(otherFields, formValues, onFormValuesChange)}
+                </div>
+            )}
+        </>
+    );
+}
+
 function renderAnchoredCheckboxList(
     fields: FormField[],
     formValues: Record<string, string>,
     onFormValuesChange: (values: Record<string, string>) => void,
     centered = false,
+    listClass?: string,
 ) {
     return (
-        <div className={`git-graph-anchored-dialog-checkbox-list${centered ? ' centered' : ''}`}>
+        <div className={`git-graph-anchored-dialog-checkbox-list${centered ? ' centered' : ''}${listClass ? ` ${listClass}` : ''}`}>
             {fields.map((field) => {
                 if (field.type !== 'checkbox') {
                     return null;
@@ -158,6 +231,7 @@ function renderAnchoredCheckboxList(
                     <label key={field.id} className="git-graph-anchored-dialog-checkbox-item">
                         <input
                             type="checkbox"
+                            className={listClass ? 'git-graph-anchored-dialog-checkbox-input' : undefined}
                             checked={formValues[field.id] === 'yes'}
                             onChange={(e) => {
                                 onFormValuesChange({
@@ -226,28 +300,20 @@ function renderAnchoredOptionList(
 export default function ActionDialog({
     step, anchored = false, anchor, onCancel, onSubmit, isExecuting = false,
 }: ActionDialogProps) {
-    const [inputValue, setInputValue] = useState('');
-    const [pickValue, setPickValue] = useState('');
-    const [formValues, setFormValues] = useState<Record<string, string>>({});
-
-    useEffect(() => {
-        if (step.kind === 'input') {
-            setInputValue(step.defaultValue ?? '');
-        } else if (step.kind === 'pick') {
-            setPickValue(step.options[0]?.value ?? '');
-            if (step.fields) {
-                setFormValues(buildInitialFormValues(step.fields));
-            } else {
-                setFormValues({});
-            }
-        } else if (step.kind === 'form') {
-            setFormValues(buildInitialFormValues(step.fields));
-        } else if (step.kind === 'confirm' && step.fields) {
-            setFormValues(buildInitialFormValues(step.fields));
-        } else {
-            setFormValues({});
+    const [inputValue, setInputValue] = useState(() => step.kind === 'input' ? (step.defaultValue ?? '') : '');
+    const [pickValue, setPickValue] = useState(() => step.kind === 'pick' ? (step.options[0]?.value ?? '') : '');
+    const [formValues, setFormValues] = useState<Record<string, string>>(() => {
+        if (step.kind === 'pick' && step.fields) {
+            return buildInitialFormValues(step.fields);
         }
-    }, [step]);
+        if (step.kind === 'form') {
+            return buildInitialFormValues(step.fields);
+        }
+        if (step.kind === 'confirm' && step.fields) {
+            return buildInitialFormValues(step.fields);
+        }
+        return {};
+    });
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -423,10 +489,10 @@ export default function ActionDialog({
                 message = (
                     <>
                         Are you sure you want to merge {step.mergeOn}{' '}
-                        <strong><em>{step.mergeTarget}</em></strong> into{' '}
+                        <DialogEmphasis>{step.mergeTarget}</DialogEmphasis> into{' '}
                         {step.branchName ? (
                             <>
-                                <strong><em>{step.branchName}</em></strong> (the current branch)
+                                <DialogEmphasis>{step.branchName}</DialogEmphasis> (the current branch)
                             </>
                         ) : (
                             'the current branch'
@@ -434,7 +500,13 @@ export default function ActionDialog({
                         ?
                     </>
                 );
-                body = renderAnchoredCheckboxList(step.fields, formValues, setFormValues);
+                body = renderAnchoredCheckboxList(
+                    step.fields,
+                    formValues,
+                    setFormValues,
+                    false,
+                    'git-graph-anchored-dialog-checkbox-list--styled git-graph-anchored-dialog-checkbox-list--merge',
+                );
             } else if (step.variant === 'cherryPick') {
                 message = (
                     <>
@@ -479,37 +551,26 @@ export default function ActionDialog({
                                 </tbody>
                             </table>
                         )}
-                        {renderAnchoredCheckboxList(step.fields, formValues, setFormValues)}
+                        {renderAnchoredCheckboxList(
+                            step.fields,
+                            formValues,
+                            setFormValues,
+                            false,
+                            'git-graph-anchored-dialog-checkbox-list--styled',
+                        )}
                     </>
                 );
             } else if ((step.variant as string) === 'pushBranch' || (step.variant as string) === 'pushTag') {
                 message = step.message ?? step.title;
                 const remoteFields = step.fields.filter((f) => f.id.startsWith('remote_'));
                 const otherFields = step.fields.filter((f) => !f.id.startsWith('remote_'));
-                body = (
-                    <>
-                        <div className="git-graph-anchored-dialog-option-list accent-mode accent-push">
-                            {remoteFields.map((field) => (
-                                <label
-                                    key={field.id}
-                                    className={`git-graph-anchored-dialog-option git-graph-anchored-dialog-option--checkbox${formValues[field.id] === 'yes' ? ' selected' : ''}`}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        className="git-graph-anchored-dialog-option-check"
-                                        checked={formValues[field.id] === 'yes'}
-                                        onChange={(e) => setFormValues((prev) => ({ ...prev, [field.id]: e.target.checked ? 'yes' : 'no' }))}
-                                    />
-                                    <span className="git-graph-anchored-dialog-option-label">{field.label}</span>
-                                </label>
-                            ))}
-                        </div>
-                        {otherFields.length > 0 && (
-                            <div style={{ borderTop: '1px solid var(--git-graph-border, rgba(128,128,128,0.2))', marginTop: 6, paddingTop: 6 }}>
-                                {renderAnchoredCheckboxList(otherFields, formValues, setFormValues)}
-                            </div>
-                        )}
-                    </>
+                body = renderPushRemoteCheckboxList(
+                    remoteFields,
+                    otherFields,
+                    formValues,
+                    setFormValues,
+                    onSubmit,
+                    isExecuting,
                 );
             } else {
                 if (step.message) {
@@ -725,6 +786,7 @@ export default function ActionDialog({
                     anchor={anchor}
                     ariaLabel={step.title}
                     repositionDeps={repositionDeps}
+                    positionVariant={step.kind === 'form' && step.variant === 'merge' ? 'merge' : 'default'}
                     compact={compact}
                 >
                     {message && (

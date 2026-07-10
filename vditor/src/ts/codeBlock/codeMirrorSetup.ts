@@ -8,13 +8,11 @@ import {
     keymap,
     type KeyBinding,
 } from "@codemirror/view";
-import {EditorState} from "@codemirror/state";
-import {indentOnInput, bracketMatching} from "@codemirror/language";
-import {history, defaultKeymap, historyKeymap} from "@codemirror/commands";
-import {highlightSelectionMatches, searchKeymap} from "@codemirror/search";
-import {closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap} from "@codemirror/autocomplete";
-import {lintKeymap} from "@codemirror/lint";
-import {vditorSyntaxHighlighting} from "./codeMirrorHighlight";
+import { EditorState } from "@codemirror/state";
+import { indentOnInput, bracketMatching } from "@codemirror/language";
+import { history, defaultKeymap, historyKeymap } from "@codemirror/commands";
+import { closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
+import { vditorSyntaxHighlighting } from "./codeMirrorHighlight";
 
 export const stopHandledCodeMirrorKeymap = (bindings: readonly KeyBinding[]) =>
     bindings.map((binding) => ({
@@ -38,13 +36,10 @@ export const vditorCodeMirrorSetup = [
     rectangularSelection(),
     crosshairCursor(),
     highlightActiveLine(),
-    highlightSelectionMatches(),
     keymap.of(stopHandledCodeMirrorKeymap([
         ...closeBracketsKeymap,
         ...defaultKeymap,
-        ...searchKeymap,
         ...historyKeymap,
         ...completionKeymap,
-        ...lintKeymap,
     ])),
 ];

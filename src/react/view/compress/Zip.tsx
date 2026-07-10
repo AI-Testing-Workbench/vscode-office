@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { App } from 'antd';
 import { handler, loadDarkMode, applyDarkMode } from '../../util/vscode';
 import { $t } from '../../i18n/i18nConfig';
 import { useWindowSize } from '../../util/reactUtils';
 import FileItems from './components/FileItems';
+import JarInfoPanel from './components/JarInfoPanel';
 import PasswordModal from './components/PasswordModal';
 import Sponsor from '../components/Sponsor';
 import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import './Zip.less';
-import { CompressInfo, FileInfo } from './zipTypes';
+import { CompressInfo, FileInfo, JarInfo } from './zipTypes';
 
 type PasswordAction = { label: string; run: (password?: string) => void };
 
@@ -33,9 +34,10 @@ function ZipViewer() {
     const [archivePassword, setArchivePassword] = useState<string>()
     const [passwordAction, setPasswordAction] = useState<PasswordAction | null>(null)
     const [passwordError, setPasswordError] = useState('')
-    const archivePasswordRef = useRef<string>()
     const [tableItems, setTableItems] = useState([] as FileInfo[])
     const [info, setInfo] = useState({ files: [] } as CompressInfo)
+    const [jarInfo, setJarInfo] = useState<JarInfo | null>(null)
+    const [loaded, setLoaded] = useState(false)
     const [dark, setDark] = useState(loadDarkMode)
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
     const [width] = useWindowSize()
@@ -49,8 +51,6 @@ function ZipViewer() {
         }
         setSidebarCollapsed((collapsed) => !collapsed);
     }, [isNarrowWidth]);
-
-    archivePasswordRef.current = archivePassword
 
     const changeFiles = (dirPath: string) => {
         setCurrentDir(dirPath)
@@ -69,13 +69,13 @@ function ZipViewer() {
     }, [encrypted])
 
     const withPassword = useCallback((label: string, required: boolean, run: (password?: string) => void) => {
-        if (required && !archivePasswordRef.current) {
+        if (required && !archivePassword) {
             setPasswordAction({ label, run })
             return
         }
         setPasswordError('')
-        run(archivePasswordRef.current)
-    }, [])
+        run(archivePassword)
+    }, [archivePassword])
 
     const handleExtract = useCallback(() => {
         withPassword('extract the archive', encrypted, (password) => {
@@ -85,13 +85,13 @@ function ZipViewer() {
 
     const handleOpenPath = useCallback((entry: FileInfo) => {
         if (entry.isDirectory) {
-            handler.emit('openPath', { entry, password: archivePasswordRef.current })
+            handler.emit('openPath', { entry, password: archivePassword })
             return
         }
         withPassword('open this file', needsPassword(entry), (password) => {
             handler.emit('openPath', { entry, password })
         })
-    }, [needsPassword, withPassword])
+    }, [archivePassword, needsPassword, withPassword])
 
     useEffect(() => {
         document.body.classList.toggle('office-dark', dark)
@@ -113,6 +113,9 @@ function ZipViewer() {
             setExtension(extension)
             setEncrypted(false)
             setArchivePassword(undefined)
+            if (extension !== 'jar') {
+                setJarInfo(null)
+            }
         })
         .on('encrypted', (value: boolean) => {
             setEncrypted(value)
@@ -123,6 +126,8 @@ function ZipViewer() {
         })
         .on('data', (info: CompressInfo) => {
             setInfo(info)
+            setJarInfo(info.jarInfo ?? null)
+            setLoaded(true)
             setTableItems(info.files)
         })
         .on('openDir', changeFiles)
@@ -154,6 +159,9 @@ function ZipViewer() {
             />
             <div className={`zip-body${showSidebar ? '' : ' zip-body--sidebar-hidden'}`}>
                 <aside className="zip-sider">
+                    {extension === 'jar' && jarInfo ? (
+                        <JarInfoPanel info={jarInfo} />
+                    ) : null}
                     <div className="zip-sider-tree">
                         <Sidebar
                             name={info.fileName}
@@ -166,11 +174,12 @@ function ZipViewer() {
                     <Sponsor dark={dark} variant="sidebar" />
                 </aside>
                 <main className="zip-content">
-                    <FileItems items={tableItems} onOpenPath={handleOpenPath} />
+                    <FileItems items={tableItems} loaded={loaded} onOpenPath={handleOpenPath} />
                 </main>
             </div>
 
             <PasswordModal
+                key={passwordAction?.label ?? 'closed'}
                 open={passwordAction !== null}
                 action={passwordAction?.label ?? ''}
                 error={passwordError}

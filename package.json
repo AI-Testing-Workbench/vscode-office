@@ -2,7 +2,7 @@
 	"name": "vscode-office",
 	"displayName": "Office Viewer",
 	"description": "View word, excel, powerpoint files and using WYSIWYG editor for markdown.",
-	"version": "4.0.6",
+	"version": "4.1.5",
 	"publisher": "cweijan",
 	"icon": "image/logo.png",
 	"engines": {
@@ -23,6 +23,7 @@
 		"svg",
 		"psd",
 		"xmind",
+		"parquet",
 		"zip",
 		"archive",
 		"font",
@@ -47,10 +48,6 @@
 	},
 	"activationEvents": [
 		"onStartupFinished"
-	],
-	"extensionKind": [
-		"ui",
-		"workspace"
 	],
 	"main": "./out/extension.js",
 	"browser": "./out/extension.web.js",
@@ -242,8 +239,14 @@
 			},
 			{
 				"command": "office.gitHistory.viewFileHistory",
-				"title": "View File History",
-				"icon": "$(history)",
+				"title": "Git: View File History",
+				"icon": "$(git-commit)",
+				"enablement": "!office.extensionHost.web"
+			},
+			{
+				"command": "office.gitHistory.quickSync",
+				"title": "Git: Quick Sync",
+				"icon": "$(sync)",
 				"enablement": "!office.extensionHost.web"
 			}
 		],
@@ -278,6 +281,11 @@
 					"command": "office.gitHistory.view",
 					"group": "navigation",
 					"when": "scmProvider == git && !office.extensionHost.web"
+				},
+				{
+					"command": "office.gitHistory.quickSync",
+					"group": "navigation",
+					"when": "scmProvider == git && config.vscode-office.gitHistory.quickSyncButton && !office.extensionHost.web"
 				}
 			],
 			"scm/repository": [
@@ -419,6 +427,9 @@
 						"filenamePattern": "*.tiff"
 					},
 					{
+						"filenamePattern": "*.tif"
+					},
+					{
 						"filenamePattern": "*.heif"
 					},
 					{
@@ -501,9 +512,6 @@
 						"filenamePattern": "*.pjp"
 					},
 					{
-						"filenamePattern": "*.tif"
-					},
-					{
 						"filenamePattern": "*.webp"
 					}
 				]
@@ -517,19 +525,18 @@
 					},
 					{
 						"filenamePattern": "file:/**/*.markdown"
-					}
-				]
-			},
-			{
-				"viewType": "cweijan.markdownPreview",
-				"displayName": "Markdown Preview",
-				"priority": "option",
-				"selector": [
-					{
-						"filenamePattern": "*.md"
 					},
 					{
-						"filenamePattern": "*.markdown"
+						"filenamePattern": "vscode-vfs:/**/*.md"
+					},
+					{
+						"filenamePattern": "vscode-vfs:/**/*.markdown"
+					},
+					{
+						"filenamePattern": "vscode-remote:/**/*.md"
+					},
+					{
+						"filenamePattern": "vscode-remote:/**/*.markdown"
 					}
 				]
 			},
@@ -550,6 +557,16 @@
 				]
 			},
 			{
+				"viewType": "cweijan.parquetViewer",
+				"displayName": "Parquet Viewer",
+				"priority": "option",
+				"selector": [
+					{
+						"filenamePattern": "*.parquet"
+					}
+				]
+			},
+			{
 				"viewType": "cweijan.classViewer",
 				"displayName": "Java Decompiler",
 				"selector": [
@@ -561,14 +578,20 @@
 		],
 		"configuration": [
 			{
+				"title": "Git History",
+				"order": 98,
+				"properties": {
+					"vscode-office.gitHistory.quickSyncButton": {
+						"type": "boolean",
+						"default": false,
+						"description": "Show Quick Sync button in Source Control (Git) title toolbar."
+					}
+				}
+			},
+			{
 				"title": "Markdown",
 				"order": 1,
 				"properties": {
-					"vscode-office.viewAbsoluteLocal": {
-						"type": "boolean",
-						"default": false,
-						"description": "Support view absolute path image from markdown viewer."
-					},
 					"vscode-office.editorTheme": {
 						"type": "string",
 						"enum": [
@@ -767,7 +790,7 @@
 	"scripts": {
 		"dev": "vite --mode=development",
 		"dev:web": "OFFICE_EXTENSION_TARGET=web vite --mode=development",
-		"lint:fix": "eslint src/**/*.ts --fix",
+		"lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
 		"build": "vite build --mode=production",
 		"package": "vsce package --no-dependencies",
 		"publish": "vsce publish --no-dependencies && ovsx publish --no-dependencies",
@@ -775,29 +798,32 @@
 	},
 	"devDependencies": {
 		"@types/diff-match-patch": "1.0.32",
-		"@types/node": "^22.10.0",
+		"@types/node": "^26.1.0",
 		"@types/react": "^19.2.17",
 		"@types/react-dom": "^19.2.3",
 		"@types/vscode": "^1.64.0",
-		"@typescript-eslint/eslint-plugin": "^7.1.1",
-		"@typescript-eslint/parser": "^7.1.1",
+		"@typescript-eslint/eslint-plugin": "^8.62.1",
+		"@typescript-eslint/parser": "^8.62.1",
 		"@vitejs/plugin-react": "^6.0.2",
 		"chokidar": "^5.0.0",
-		"esbuild": "^0.14.54",
-		"esbuild-plugin-copy": "^1.3.0",
-		"eslint": "^8.57.0",
-		"eslint-plugin-import": "^2.29.1",
-		"eslint-plugin-react": "^7.34.1",
+		"esbuild": "^0.28.1",
+		"esbuild-plugin-copy": "2.1.1",
+		"eslint": "^9.39.4",
+		"eslint-plugin-import-x": "^4.16.2",
+		"eslint-plugin-react": "^7.37.5",
 		"eslint-plugin-react-hooks": "^7.1.1",
-		"eslint-plugin-react-refresh": "^0.4.6",
-		"eslint-plugin-unused-imports": "^3.1.0",
+		"eslint-plugin-react-refresh": "^0.5.3",
+		"eslint-plugin-unused-imports": "^4.4.1",
+		"globals": "^17.7.0",
 		"less": "^4.2.0",
 		"node-unrar-js": "^2.0.2",
 		"vite": "^8.0.16",
-		"vite-plugin-static-copy": "^2.2.0"
+		"vite-plugin-static-copy": "^4.1.1"
 	},
 	"dependencies": {
+		"7z-wasm": "^1.2.0",
 		"@ant-design/icons": "^5.3.5",
+		"@codemirror/autocomplete": "^6.20.3",
 		"@codemirror/commands": "^6.10.3",
 		"@codemirror/lang-xml": "^6.1.0",
 		"@codemirror/language": "^6.12.3",
@@ -811,13 +837,11 @@
 		"@vscode/codicons": "^0.0.45",
 		"@vscode/extension-telemetry": "^1.5.2",
 		"@zip.js/zip.js": "^2.8.26",
-		"7z-wasm": "^1.2.0",
 		"ag-psd": "^30.1.1",
 		"antd": "^5.15.4",
-		"axios": "^1.4.0",
+		"axios": "^1.18.1",
 		"buffer": "^6.0.3",
 		"chart.js": "^4.5.1",
-		"cheerio": "^1.0.0",
 		"chrome-finder": "^1.0.7",
 		"codemirror": "^6.0.2",
 		"codemirror-lang-latex": "^0.4.1",
@@ -828,17 +852,23 @@
 		"file-type": "^19.6.0",
 		"heic2any": "^0.0.4",
 		"highlight.js": "^11.10.0",
+		"hyparquet": "^1.26.1",
+		"hyparquet-writer": "^0.15.7",
 		"iconv-lite": "^0.6.3",
 		"jszip": "^3.10.1",
 		"katex": "^0.16.2",
 		"markdown-it": "^14.1.0",
 		"markdown-it-anchor": "^9.2.0",
 		"markdown-it-checkbox": "^1.1.0",
+		"markdown-it-front-matter": "^0.2.4",
+		"markdown-it-mark": "^4.0.0",
+		"markdown-it-obsidian-callouts": "^0.3.4",
 		"markdown-it-plantuml": "^1.4.1",
 		"markdown-it-toc-done-right": "^4.2.0",
 		"mermaid": "^11.15.0",
 		"mind-elixir": "^5.12.2",
 		"mustache": "^4.0.1",
+		"node-html-parser": "^7.0.1",
 		"opentype.js": "1.3.4",
 		"pdf-lib": "^1.11.2",
 		"pptxviewjs": "^1.1.9",
@@ -859,8 +889,7 @@
 		"tar": "^7.5.16",
 		"udsv": "^0.5.3",
 		"utif": "^3.1.0",
-		"vscode-html-to-docx": "^1.1.2",
-		"x-data-spreadsheet": "^1.1.9",
+		"vscode-html-to-docx": "^1.1.3",
 		"xlsx": "^0.18.5",
 		"yaml": "^2.9.0"
 	}

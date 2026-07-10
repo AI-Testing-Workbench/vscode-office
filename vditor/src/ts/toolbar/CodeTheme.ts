@@ -8,7 +8,6 @@ import {applyCodeMirrorTheme, resolveCodeMirrorTheme} from "../ui/setCodeTheme";
 import {getEventName} from "../util/compatibility";
 import {MenuItem} from "./MenuItem";
 import {toggleSubMenu} from "./setToolbar";
-import {telemetryToolbar} from "../util/telemetry";
 
 const formatThemeLabel = (themeId: string) => themeId;
 
@@ -48,12 +47,8 @@ export class CodeTheme extends MenuItem {
         });
         this.element.appendChild(panelElement);
 
-        actionBtn.addEventListener(getEventName(), () => {
-            const willOpen = panelElement.style.display !== "block";
+        actionBtn.addEventListener(getEventName(), (_event: Event) => {
             refreshCodeThemePanel(panelElement, resolveCodeMirrorTheme(vditor.options));
-            if (willOpen) {
-                telemetryToolbar(vditor, "code-theme");
-            }
         }, true);
 
         toggleSubMenu(vditor, panelElement, actionBtn, menuItem.level);

@@ -8,6 +8,7 @@ import {
     focusEvent,
     hotkeyEvent,
     selectEvent,
+    wheelZoomFontSizeEvent,
 } from "../util/editorCommonEvent";
 import { paste } from "../util/fixBrowserBehavior";
 import { insertPastedCode } from "../util/processCode";
@@ -31,6 +32,7 @@ import {
     isMathBlockEmpty,
     isSpecialBlock,
     isSpecialPreviewBlock,
+    setupLazyCodeMirrorObserver,
 } from "../codeBlock/codeMirrorManager";
 import { enterInlineMathEdit } from "../math/inlineMathCodeMirror";
 import { expandMarkerWithMathSync } from "./expandMarkerSync";
@@ -38,8 +40,11 @@ import { handleHtmlEditorClick } from "../htmlInline/htmlInlineEditor";
 import { handleFrontMatterEditorClick } from "../codeBlock/frontMatterEditor";
 import { linkClickEvent } from "../util/linkClick";
 import { highlightToolbarIR } from "./highlightToolbarIR";
+import { scheduleHighlightToolbar } from "../util/highlightToolbar";
 import { input } from "./input";
 import { processAfterRender, processHint } from "./process";
+import { initBlockHandle } from "../wysiwyg/blockHandle";
+import { initTableHandle } from "../wysiwyg/tableHandle";
 
 class IR {
     public range: Range;
@@ -65,16 +70,21 @@ class IR {
 
         this.bindEvent(vditor);
 
+        initBlockHandle(vditor, divElement, this.element);
+        initTableHandle(vditor, divElement, this.element);
+
         linkClickEvent(vditor, divElement);
         focusEvent(vditor, this.element);
         dblclickEvent(vditor, this.element);
         blurEvent(vditor, this.element);
         hotkeyEvent(vditor, this.element);
+        wheelZoomFontSizeEvent(vditor, this.element);
         selectEvent(vditor, this.element);
         dropEvent(vditor, this.element);
         copyEvent(vditor, this.element, this.copy);
         cutEvent(vditor, this.element, this.copy);
         bindImageLoadingState(this.element);
+        setupLazyCodeMirrorObserver(vditor);
     }
 
     private copy(event: ClipboardEvent, vditor: IVditor) {
@@ -307,7 +317,7 @@ class IR {
             }
             if (event.key === "Enter") {
             }
-            highlightToolbarIR(vditor);
+            scheduleHighlightToolbar(vditor);
             if ((event.key === "Backspace" || event.key === "Delete") &&
                 vditor.ir.element.innerHTML !== "" && vditor.ir.element.childNodes.length === 1 &&
                 vditor.ir.element.firstElementChild && vditor.ir.element.firstElementChild.tagName === "P"

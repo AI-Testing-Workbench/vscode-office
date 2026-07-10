@@ -17,6 +17,7 @@ export class Options {
             type: "markdown",
         },
         debugger: false,
+        wysiwygInputPerf: false,
         height: "auto",
         hint: {
             delay: 200,
@@ -89,6 +90,9 @@ export class Options {
         value: "",
         width: "auto",
         editorTheme: "Auto",
+        lastNonAutoEditorTheme: "Light",
+        lastLightEditorTheme: "Light",
+        lastDarkEditorTheme: "One Dark",
         mermaidTheme: "Auto",
         onSponsorLogoClick: undefined,
         onSponsorSiteClick: undefined,
@@ -133,7 +137,7 @@ export class Options {
             icon: getToolbarCodicon("headings"),
             name: "headings",
         }, {
-            hotkey: "⌘K",
+            hotkey: "⌘B",
             icon: getToolbarCodicon("bold"),
             name: "bold",
             prefix: "**",
@@ -151,7 +155,7 @@ export class Options {
             prefix: "~~",
             suffix: "~~",
         }, {
-            hotkey: "⌘U",
+            hotkey: "⌘K",
             icon: getToolbarCodicon("link"),
             name: "link",
             prefix: "[",

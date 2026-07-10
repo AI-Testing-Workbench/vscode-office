@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ImageGallery from "react-image-gallery";
 import "react-image-gallery/styles/css/image-gallery.css";
 import { handler } from '../../util/vscode';
-import { needsConversion, resolveImageSrc, revokeObjectUrl } from './convertImage';
+import { type ImageSource, needsConversion, resolveImageSrc, revokeObjectUrl } from './convertImage';
 import './Image.less';
 import SponsorBar from '../components/SponsorBar';
 
@@ -54,6 +54,14 @@ export default function Image() {
         handler.on('images', info => {
             setInfo(info);
             setZoom(1);
+            const hasResolvable = info.images.some((image: ImageSource) =>
+                needsConversion(image) || !!image.buffer?.length
+            );
+            setLoading(hasResolvable);
+            if (!info.images.length) {
+                setResolvedImages([]);
+                setLoading(false);
+            }
         }).emit('images');
     }, []);
 
@@ -65,14 +73,7 @@ export default function Image() {
         objectUrlsRef.current = [];
 
         if (!info.images.length) {
-            setResolvedImages([]);
-            setLoading(false);
             return;
-        }
-
-        const hasConvertible = info.images.some((image: { src: string; ext?: string }) => needsConversion(image.src, image.ext));
-        if (hasConvertible) {
-            setLoading(true);
         }
 
         (async () => {
@@ -80,13 +81,13 @@ export default function Image() {
             for (const image of info.images) {
                 if (cancelled) return;
                 try {
-                    const src = await resolveImageSrc(image.src, image.ext);
+                    const src = await resolveImageSrc(image);
                     if (src.startsWith('blob:')) {
                         objectUrlsRef.current.push(src);
                     }
                     resolved.push({ original: src, thumbnail: src });
                 } catch {
-                    resolved.push({ original: image.src, thumbnail: image.src });
+                    resolved.push({ original: image.src ?? '', thumbnail: image.src ?? '' });
                 }
             }
             if (!cancelled) {

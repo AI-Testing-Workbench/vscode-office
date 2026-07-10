@@ -9,6 +9,7 @@ import type {
     GitRefData,
     GitRepoInfo,
     GitStash,
+    LoadAuthorsRequest,
     LoadCommitsRequest,
     LoadRepositoryRequest,
     LoadRepositoryResult,
@@ -35,31 +36,8 @@ export class CommitService {
         '%H', '%P', '%aN', '%aE', '%at', '%cN', '%cE', '%ct', '%G?', '%GS', '%GK', '%B',
     ].join(GIT_LOG_SEPARATOR);
     private readonly gitFormatStash = `%H${GIT_LOG_SEPARATOR}%gD${GIT_LOG_SEPARATOR}%P${GIT_LOG_SEPARATOR}%aN${GIT_LOG_SEPARATOR}%aE${GIT_LOG_SEPARATOR}%at${GIT_LOG_SEPARATOR}%s`;
-    private readonly refCache = new Map<string, GitRefData>();
-    private readonly authorsCache = new Map<string, string[]>();
 
     constructor(private readonly executor: GitExecutor) { }
-
-    invalidateRepoCache(repo: string): void {
-        const prefix = `${repo}\0`;
-        for (const key of this.refCache.keys()) {
-            if (key.startsWith(prefix)) {
-                this.refCache.delete(key);
-            }
-        }
-        this.authorsCache.delete(repo);
-    }
-
-    getAuthorsCached(repo: string): Promise<string[]> {
-        const cached = this.authorsCache.get(repo);
-        if (cached) {
-            return Promise.resolve(cached);
-        }
-        return this.getAuthors(repo).then((authors) => {
-            this.authorsCache.set(repo, authors);
-            return authors;
-        });
-    }
 
     getRepoInfo(
         repo: string,
@@ -105,7 +83,7 @@ export class CommitService {
                 includeCommitsMentionedByReflogs, onlyFollowFirstParent, commitOrdering,
                 remotes, hideRemotes, stashes, author, searchValue, relPath
             ),
-            this.getRefsCached(repo, showRemoteBranches, hideRemotes).catch(
+            this.getRefs(repo, showRemoteBranches, hideRemotes).catch(
                 (errorMessage: string) => errorMessage
             ),
         ]).then(([rawCommits, refDataOrError]) =>
@@ -117,6 +95,7 @@ export class CommitService {
                 remotes,
                 maxCommits,
                 showTags,
+                markOffCurrentBranch: branches === null || branches.length === 0,
             })
         ).catch((errorMessage: string) => ({
             commits: [],
@@ -129,20 +108,16 @@ export class CommitService {
 
     loadRepository(request: LoadRepositoryRequest): Promise<LoadRepositoryResult> {
         const {
-            repo, showRemoteBranches, showStashes, hideRemotes = [], invalidateCache,
+            repo, showRemoteBranches, showStashes, hideRemotes = [],
             branches, maxCommits, showTags, includeCommitsMentionedByReflogs,
             onlyFollowFirstParent, commitOrdering, author, searchValue, relPath,
         } = request;
-
-        if (invalidateCache) {
-            this.invalidateRepoCache(repo);
-        }
 
         return Promise.all([
             this.getBranches(repo, showRemoteBranches, hideRemotes),
             this.getRemotes(repo),
             showStashes ? this.getStashes(repo) : Promise.resolve([] as GitStash[]),
-            this.getRefsCached(repo, showRemoteBranches, hideRemotes).catch(
+            this.getRefs(repo, showRemoteBranches, hideRemotes).catch(
                 (errorMessage: string) => errorMessage
             ),
         ]).then(([branchData, remotes, stashes, refDataOrError]) =>
@@ -159,6 +134,7 @@ export class CommitService {
                     remotes,
                     maxCommits,
                     showTags,
+                    markOffCurrentBranch: branches === null || branches.length === 0,
                 }).then((commitData) => ({
                     repoInfo: {
                         branches: branchData.branches.map((branch) => normalizeGitBranchListName(branch, remotes)),
@@ -202,10 +178,20 @@ export class CommitService {
         remotes: ReadonlyArray<string>;
         maxCommits: number;
         showTags: boolean;
+        markOffCurrentBranch?: boolean;
     }): Promise<GitCommitData> {
-        const { repo, rawCommits, refDataOrError, stashes, remotes, maxCommits, showTags } = params;
+        const {
+            repo,
+            rawCommits,
+            refDataOrError,
+            stashes,
+            remotes,
+            maxCommits,
+            showTags,
+            markOffCurrentBranch = false,
+        } = params;
         let commits = rawCommits;
-        let moreCommitsAvailable = commits.length === maxCommits + 1;
+        const moreCommitsAvailable = commits.length === maxCommits + 1;
         if (moreCommitsAvailable) {
             commits = commits.slice(0, maxCommits);
         }
@@ -312,7 +298,7 @@ export class CommitService {
             }
         }
 
-        const finish = (numUncommitted: number): GitCommitData => {
+        const finish = (numUncommitted: number): Promise<GitCommitData> => {
             if (numUncommitted > 0 && refData.head !== null) {
                 commitNodes.unshift({
                     hash: UNCOMMITTED,
@@ -325,21 +311,61 @@ export class CommitService {
                     tags: [],
                     remotes: [],
                     stash: null,
+                    onCurrentBranch: true,
                 });
             }
-            return {
+            const markMembership = markOffCurrentBranch
+                ? this.applyOnCurrentBranchMembership(commitNodes, refData.head, repo)
+                : Promise.resolve();
+            return markMembership.then(() => ({
                 commits: commitNodes,
                 head: refData.head,
                 tags: [...new Set(refData.tags.map((t) => t.name))],
                 moreCommitsAvailable,
                 error: null,
-            };
+            }));
         };
 
         if (uncommittedPromise) {
             return uncommittedPromise.then((numUncommitted) => finish(numUncommitted));
         }
-        return Promise.resolve(finish(0));
+        return finish(0);
+    }
+
+    private getAncestorHashes(repo: string, head: string | null): Promise<Set<string>> {
+        if (!head) {
+            return Promise.resolve(new Set<string>());
+        }
+        return this.executor.spawn(['rev-list', head], repo, (stdout) => {
+            const ancestors = new Set<string>();
+            const lines = stdout.split(EOL_REGEX);
+            for (let i = 0; i < lines.length - 1; i++) {
+                const hash = lines[i].trim();
+                if (hash) {
+                    ancestors.add(hash);
+                }
+            }
+            return ancestors;
+        }).catch(() => new Set<string>());
+    }
+
+    private applyOnCurrentBranchMembership(
+        commits: GitCommit[],
+        head: string | null,
+        repo: string,
+    ): Promise<void> {
+        return this.getAncestorHashes(repo, head).then((ancestors) => {
+            for (let i = 0; i < commits.length; i++) {
+                const commit = commits[i];
+                if (commit.hash === UNCOMMITTED || commit.stash !== null) {
+                    commits[i].onCurrentBranch = true;
+                } else if (!head) {
+                    commits[i].onCurrentBranch = true;
+                } else {
+                    commits[i].onCurrentBranch = ancestors.has(commit.hash);
+                }
+            }
+        });
     }
 
     getCommitDetails(repo: string, commitHash: string, hasParents: boolean): Promise<GitCommitDetailsData> {
@@ -385,28 +411,15 @@ export class CommitService {
         if (onlyFollowFirstParent) args.push('--first-parent');
         if (author) args.push('--author=' + author);
         if (searchValue) args.push('--grep=' + searchValue);
-
-        if (branches !== null) {
-            for (const branch of branches) args.push(branch);
-        } else {
-            args.push('--branches');
-            if (includeTags) args.push('--tags');
-            if (includeReflogs) args.push('--reflog');
-            if (includeRemotes) {
-                if (hideRemotes.length === 0) {
-                    args.push('--remotes');
-                } else {
-                    for (const remote of remotes) {
-                        if (!hideRemotes.includes(remote)) {
-                            args.push('--glob=refs/remotes/' + remote);
-                        }
-                    }
-                }
-            }
-            const stashBaseHashes = [...new Set(stashes.map((s) => s.baseHash))];
-            for (const hash of stashBaseHashes) args.push(hash);
-            args.push('HEAD');
-        }
+        args.push(...this.buildHistoryArgs(
+            branches,
+            includeTags,
+            includeRemotes,
+            includeReflogs,
+            remotes,
+            hideRemotes,
+            stashes,
+        ));
         args.push('--');
         if (relPath) {
             args.push('--follow', relPath);
@@ -428,30 +441,6 @@ export class CommitService {
                 });
             }
             return commits;
-        });
-    }
-
-    private refCacheKey(
-        repo: string,
-        showRemoteBranches: boolean,
-        hideRemotes: ReadonlyArray<string>
-    ): string {
-        return `${repo}\0${showRemoteBranches}\0${hideRemotes.join('\0')}`;
-    }
-
-    private getRefsCached(
-        repo: string,
-        showRemoteBranches: boolean,
-        hideRemotes: ReadonlyArray<string>
-    ): Promise<GitRefData> {
-        const key = this.refCacheKey(repo, showRemoteBranches, hideRemotes);
-        const cached = this.refCache.get(key);
-        if (cached) {
-            return Promise.resolve(cached);
-        }
-        return this.getRefs(repo, showRemoteBranches, hideRemotes).then((data) => {
-            this.refCache.set(key, data);
-            return data;
         });
     }
 
@@ -529,23 +518,71 @@ export class CommitService {
         );
     }
 
-    private getAuthors(repo: string): Promise<string[]> {
+    private buildHistoryArgs(
+        branches: ReadonlyArray<string> | null,
+        includeTags: boolean,
+        includeRemotes: boolean,
+        includeReflogs: boolean,
+        remotes: ReadonlyArray<string>,
+        hideRemotes: ReadonlyArray<string>,
+        stashes: ReadonlyArray<GitStash>,
+    ): string[] {
+        const args: string[] = [];
+        if (branches !== null) {
+            for (const branch of branches) args.push(branch);
+        } else {
+            args.push('--branches');
+            if (includeTags) args.push('--tags');
+            if (includeReflogs) args.push('--reflog');
+            if (includeRemotes) {
+                if (hideRemotes.length === 0) {
+                    args.push('--remotes');
+                } else {
+                    for (const remote of remotes) {
+                        if (!hideRemotes.includes(remote)) {
+                            args.push('--glob=refs/remotes/' + remote);
+                        }
+                    }
+                }
+            }
+            const stashBaseHashes = [...new Set(stashes.map((s) => s.baseHash))];
+            for (const hash of stashBaseHashes) args.push(hash);
+            args.push('HEAD');
+        }
+        return args;
+    }
+
+    getAuthors(request: LoadAuthorsRequest): Promise<string[]> {
+        const {
+            repo, branches, showTags, showRemoteBranches, includeCommitsMentionedByReflogs,
+            onlyFollowFirstParent, commitOrdering, remotes, hideRemotes, stashes, searchValue, relPath,
+        } = request;
         return this.executor.spawn(
-            ['shortlog', '-e', '-s', '-n', 'HEAD'],
+            [
+                '-c', 'log.showSignature=false', 'log',
+                '--format=%aN',
+                '--' + commitOrdering + '-order',
+                ...(onlyFollowFirstParent ? ['--first-parent'] : []),
+                ...(searchValue ? ['--grep=' + searchValue] : []),
+                ...this.buildHistoryArgs(
+                    branches,
+                    showTags,
+                    showRemoteBranches,
+                    includeCommitsMentionedByReflogs,
+                    remotes,
+                    hideRemotes,
+                    stashes,
+                ),
+                '--',
+                ...(relPath ? ['--follow', relPath] : []),
+            ],
             repo,
             (stdout) => {
                 const seen = new Set<string>();
                 const authors: string[] = [];
                 const lines = stdout.split(EOL_REGEX);
                 for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (!line) continue;
-                    const tab = line.indexOf('\t');
-                    const authorLine = tab >= 0 ? line.substring(tab + 1).trim() : line;
-                    const emailStart = authorLine.indexOf('<');
-                    const name = emailStart >= 0
-                        ? authorLine.substring(0, emailStart).trim()
-                        : authorLine;
+                    const name = lines[i].trim();
                     if (!name || seen.has(name)) continue;
                     seen.add(name);
                     authors.push(name);
@@ -728,7 +765,7 @@ function parseStatusPorcelain(stdout: string): NameStatusRecord[] {
             continue;
         }
 
-        let filePath = line.substring(3);
+        const filePath = line.substring(3);
         let oldFilePath = filePath;
         let newFilePath = filePath;
         const arrowIndex = filePath.indexOf(' -> ');
@@ -761,7 +798,15 @@ function generateFileChanges(
     const fileLookup: Record<string, number> = {};
 
     for (const record of nameStatus) {
-        fileLookup[record.newFilePath] = fileChanges.length;
+        const idx = fileChanges.length;
+        fileLookup[record.newFilePath] = idx;
+        if (record.type === 'R') {
+            fileLookup[record.oldFilePath] = idx;
+            fileLookup[`${record.oldFilePath} => ${record.newFilePath}`] = idx;
+            for (const alias of buildRenamePathAliases(record.oldFilePath, record.newFilePath)) {
+                fileLookup[alias] = idx;
+            }
+        }
         fileChanges.push({
             oldFilePath: record.oldFilePath,
             newFilePath: record.newFilePath,
@@ -783,4 +828,40 @@ function generateFileChanges(
     }
 
     return fileChanges;
+}
+
+function buildRenamePathAliases(oldFilePath: string, newFilePath: string): string[] {
+    const aliases: string[] = [];
+    const oldParts = oldFilePath.split('/');
+    const newParts = newFilePath.split('/');
+    let prefixLength = 0;
+    while (
+        prefixLength < oldParts.length
+        && prefixLength < newParts.length
+        && oldParts[prefixLength] === newParts[prefixLength]
+    ) {
+        prefixLength++;
+    }
+
+    let suffixLength = 0;
+    while (
+        suffixLength < oldParts.length - prefixLength
+        && suffixLength < newParts.length - prefixLength
+        && oldParts[oldParts.length - 1 - suffixLength] === newParts[newParts.length - 1 - suffixLength]
+    ) {
+        suffixLength++;
+    }
+
+    const prefix = oldParts.slice(0, prefixLength).join('/');
+    const suffix = suffixLength > 0 ? oldParts.slice(oldParts.length - suffixLength).join('/') : '';
+    const oldMiddle = oldParts.slice(prefixLength, oldParts.length - suffixLength).join('/');
+    const newMiddle = newParts.slice(prefixLength, newParts.length - suffixLength).join('/');
+    if (oldMiddle && newMiddle) {
+        aliases.push([
+            prefix,
+            `{${oldMiddle} => ${newMiddle}}`,
+            suffix,
+        ].filter(Boolean).join('/'));
+    }
+    return aliases;
 }

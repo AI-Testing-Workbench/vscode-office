@@ -1,54 +1,77 @@
 import "./assets/less/index.less";
 import * as adapterRender from "./ts/markdown/adapterRender";
-import {codeRender} from "./ts/markdown/codeRender";
-import {codeMirrorPreviewRender} from "./ts/codeBlock/codeMirrorPreviewRender";
-import {mathRender} from "./ts/markdown/mathRender";
-import {mermaidRender} from "./ts/markdown/mermaidRender";
-import {outlineRender} from "./ts/markdown/outlineRender";
-import {plantumlRender} from "./ts/markdown/plantumlRender";
-import {previewImage} from "./ts/preview/image";
-import {Constants, VDITOR_VERSION} from "./ts/constants";
-import {Hint} from "./ts/hint/index";
-import {IR} from "./ts/ir/index";
-import {input as irInput} from "./ts/ir/input";
-import {processAfterRender} from "./ts/ir/process";
-import {getHTML} from "./ts/markdown/getHTML";
-import {getMarkdown} from "./ts/markdown/getMarkdown";
-import {setLute} from "./ts/markdown/setLute";
-import {Outline} from "./ts/outline/index";
-import {Tip} from "./ts/tip/index";
-import {Toolbar} from "./ts/toolbar/index";
-import {disableToolbar, hidePanel} from "./ts/toolbar/setToolbar";
-import {enableToolbar} from "./ts/toolbar/setToolbar";
-import {AIDialog} from "./ts/ui/aiDialog";
-import {telemetry} from "./ts/util/telemetry";
-import {AIResultPanel} from "./ts/ui/aiResultPanel";
-import {initUI} from "./ts/ui/initUI";
-import {setCodeTheme} from "./ts/ui/setCodeTheme";
-import {setEditorTheme as applyEditorTheme} from "./ts/ui/setEditorTheme";
-import {setTheme} from "./ts/ui/setTheme";
-import {Undo} from "./ts/undo/index";
-import {Upload} from "./ts/upload/index";
-import {addScript} from "./ts/util/addScript";
-import {clearCacheFocus, restoreCacheFocus} from "./ts/util/cacheFocus";
-import {accessLocalStorage} from "./ts/util/compatibility";
-import {clearDocumentScroll, restoreDocumentScroll} from "./ts/util/documentState";
-import {getSelectText} from "./ts/util/getSelectText";
-import {Options} from "./ts/util/Options";
-import {processCodeRender} from "./ts/util/processCode";
-import {getCursorPosition, getEditorRange} from "./ts/util/selection";
+import { codeRender } from "./ts/markdown/codeRender";
+import { codeMirrorPreviewRender } from "./ts/codeBlock/codeMirrorPreviewRender";
+import { renderCodeBlocks } from "./ts/codeBlock/codeMirrorManager";
+import { mathRender } from "./ts/markdown/mathRender";
+import { mermaidRender } from "./ts/markdown/mermaidRender";
+import { outlineRender } from "./ts/markdown/outlineRender";
+import { plantumlRender } from "./ts/markdown/plantumlRender";
+import { previewImage } from "./ts/preview/image";
+import { Constants, VDITOR_VERSION } from "./ts/constants";
+import { Hint } from "./ts/hint/index";
+import { IR } from "./ts/ir/index";
+import { input as irInput } from "./ts/ir/input";
+import { processAfterRender } from "./ts/ir/process";
+import { getHTML } from "./ts/markdown/getHTML";
+import { getMarkdown } from "./ts/markdown/getMarkdown";
+import { setLute } from "./ts/markdown/setLute";
+import { Outline } from "./ts/outline/index";
+import { Tip } from "./ts/tip/index";
+import { Toolbar } from "./ts/toolbar/index";
+import { disableToolbar, hidePanel } from "./ts/toolbar/setToolbar";
+import { enableToolbar } from "./ts/toolbar/setToolbar";
+import { AIDialog } from "./ts/ui/aiDialog";
+import { telemetry } from "./ts/util/telemetry";
+import { AIReviewPanel } from "./ts/ui/aiReviewPanel";
+import { initUI } from "./ts/ui/initUI";
+import { setCodeTheme } from "./ts/ui/setCodeTheme";
+import { setEditorTheme as applyEditorTheme } from "./ts/ui/setEditorTheme";
+import { applyMermaidTheme } from "./ts/ui/setMermaidTheme";
+import { setEditMode } from "./ts/toolbar/EditMode";
+import { setTheme } from "./ts/ui/setTheme";
+import { Undo } from "./ts/undo/index";
+import { Upload } from "./ts/upload/index";
+import { addScript } from "./ts/util/addScript";
+import { clearCacheFocus, restoreCacheFocus } from "./ts/util/cacheFocus";
+import { accessLocalStorage } from "./ts/util/compatibility";
+import { clearDocumentScroll, restoreDocumentScroll } from "./ts/util/documentState";
+import { getSelectText } from "./ts/util/getSelectText";
+import { Options } from "./ts/util/Options";
+import { processCodeRender } from "./ts/util/processCode";
+import { hasClosestBlock } from "./ts/util/hasClosest";
+import { getCursorPosition, getEditorRange, insertMdForAIReplace, setSelectionFocus } from "./ts/util/selection";
+import { recordHistoryChange } from "./ts/util/instantHistory";
 import {
     captureEditorSelection,
     hideFrozenSelection,
     restoreEditorSelection,
     showFrozenSelection,
 } from "./ts/util/frozenSelection";
-import {afterRenderEvent} from "./ts/wysiwyg/afterRenderEvent";
-import {renderToc} from "./ts/util/toc";
-import {scrollToBlock as scrollToBlockUtil} from "./ts/util/scrollToBlock";
-import {WYSIWYG} from "./ts/wysiwyg/index";
-import {input} from "./ts/wysiwyg/input";
-import {ensureEditorBoundaryParagraphs, renderDomByMd} from "./ts/wysiwyg/renderDomByMd";
+import { afterRenderEvent } from "./ts/wysiwyg/afterRenderEvent";
+import { renderToc } from "./ts/util/toc";
+import { scrollToBlock as scrollToBlockUtil } from "./ts/util/scrollToBlock";
+import { configureHistoryDeferByDocumentLength } from "./ts/util/historySchedule";
+import { isDocumentDirty, markDocumentSaved, updateSaveToolbarState } from "./ts/util/saveToolbarState";
+import {
+    applyEditorSettings,
+    enableViewerSettingsSync,
+    exportViewerSettings,
+    getGlobalLocalStorageSetting,
+    importViewerSettings,
+    setOnViewerSettingsChange,
+    ViewerSettingsExport,
+} from "./ts/util/globalLocalStorageSettings";
+import { exportExportSettings, ExportThemeSettings } from "./ts/util/exportThemeSettings";
+import {
+    buildSettingsPanelHTML,
+    refreshAISettingsToolbarPanel,
+    refreshSettingsToolbarPanel,
+} from "./ts/ui/settingsPanel";
+import { WYSIWYG } from "./ts/wysiwyg/index";
+import { input } from "./ts/wysiwyg/input";
+import { ensureEditorBoundaryParagraphs, renderDomByMd } from "./ts/wysiwyg/renderDomByMd";
+import { unbindTypewriterMode } from "./ts/ui/typewriterMode";
 
 class Vditor {
     public static adapterRender = adapterRender;
@@ -66,8 +89,7 @@ class Vditor {
     public vditor: IVditor;
     private aiDialog: AIDialog | null = null;
     private aiSelectionRange: Range | null = null;
-    private aiSelectionRect: DOMRect | null = null;
-    private aiResultPanel: AIResultPanel = new AIResultPanel();
+    private aiReviewPanel: AIReviewPanel = new AIReviewPanel();
     private aiReplaceAll = false;
 
     /**
@@ -85,7 +107,7 @@ class Vditor {
                     },
                 };
             } else if (!options.cache) {
-                options.cache = {id: `vditor${id}`};
+                options.cache = { id: `vditor${id}` };
             } else if (!options.cache.id) {
                 options.cache.id = `vditor${id}`;
             }
@@ -137,9 +159,32 @@ class Vditor {
         applyEditorTheme(this.vditor, editorTheme, false);
     }
 
+    /** 设置 Mermaid 主题（不触发 changeMermaidTheme 回调） */
+    public setMermaidTheme(mermaidTheme: string) {
+        applyMermaidTheme(this.vditor, mermaidTheme, false);
+    }
+
+    /** 切换编辑模式（不触发 changeEditMode 回调） */
+    public switchEditMode(mode: "wysiwyg" | "ir") {
+        if (this.vditor.currentMode === mode) {
+            return;
+        }
+        setEditMode(this.vditor, mode, this.getValue());
+    }
+
     /** 获取 Markdown 内容 */
     public getValue() {
         return getMarkdown(this.vditor);
+    }
+
+    /** 标记当前内容已保存，并禁用工具栏保存按钮 */
+    public markSaved(markdown?: string) {
+        markDocumentSaved(this.vditor, markdown);
+    }
+
+    /** 当前文档相对上次保存是否有变更 */
+    public isDirty() {
+        return isDocumentDirty(this.vditor);
     }
 
     /** 获取编辑器当前编辑模式 */
@@ -342,7 +387,9 @@ class Vditor {
         }
         if (clearStack) {
             this.clearStack();
+            configureHistoryDeferByDocumentLength(this.vditor, markdown.length);
         }
+        updateSaveToolbarState(this.vditor);
     }
 
     /** 清空 undo & redo 栈 */
@@ -361,16 +408,44 @@ class Vditor {
         this.aiDialog?.setVSCodeModels(models);
     }
 
+    /** 启用或禁用配置文件同步 */
+    public setViewerSettingsSyncEnabled(enabled: boolean) {
+        enableViewerSettingsSync(enabled);
+    }
+
+    /** 导出当前全局设置（用于写入配置文件） */
+    public exportViewerSettings(): ViewerSettingsExport {
+        return exportViewerSettings();
+    }
+
+    /** 从配置文件导入并应用全局设置 */
+    public applyViewerSettings(data: ViewerSettingsExport) {
+        importViewerSettings(data);
+        applyEditorSettings(this.vditor.element);
+        const outlineWidth = getGlobalLocalStorageSetting<number>("outlineWidth");
+        if (outlineWidth && this.vditor.outline?.element) {
+            this.vditor.outline.element.style.width = `${outlineWidth}px`;
+        }
+        const outlineEnable = getGlobalLocalStorageSetting<boolean>("outlineEnable");
+        if (outlineEnable !== undefined) {
+            this.vditor.options.outline.enable = outlineEnable === true || outlineEnable === "true";
+        }
+        const settingsItem = this.vditor.toolbar.elements.settings;
+        const panelElement = settingsItem?.querySelector(".vditor-hint") as HTMLElement | null;
+        if (panelElement) {
+            panelElement.innerHTML = buildSettingsPanelHTML(this.vditor);
+        }
+        refreshSettingsToolbarPanel(this.vditor);
+        refreshAISettingsToolbarPanel(this.vditor);
+    }
+
     /** 打开 AI 润色弹窗，由外部（右键菜单等）调用 */
     public openAIPolishDialog() {
         if (!this.aiDialog) { return; }
         const sel = this.getSelection();
         this.aiSelectionRange = captureEditorSelection(this.vditor);
         if (this.aiSelectionRange) {
-            this.aiSelectionRect = this.aiSelectionRange.getBoundingClientRect();
             showFrozenSelection(this.vditor, this.aiSelectionRange);
-        } else {
-            this.aiSelectionRect = null;
         }
         this.aiDialog.open(sel || this.getValue(), !!sel);
     }
@@ -383,52 +458,91 @@ class Vditor {
         this.aiReplaceAll = replaceAll;
         const markdown = capturedMarkdown ?? (this.getSelection() || this.getValue());
         this.disabled();
-        const discardOrCancel = (cancel = false) => {
+        if (this.aiSelectionRange) {
+            showFrozenSelection(this.vditor, this.aiSelectionRange);
+        }
+        const finishReview = (cancel = false, restoreSelection = true) => {
+            const range = this.aiSelectionRange;
+            const hadSelection = !!range && !this.aiReplaceAll;
             this.enable();
             hideFrozenSelection(this.vditor);
             this.aiSelectionRange = null;
-            this.aiSelectionRect = null;
-            if (cancel) this.vditor.options.ai?.onCancelPolish?.();
+            this.aiReviewPanel.close();
+            if (restoreSelection && hadSelection) {
+                restoreEditorSelection(this.vditor, range);
+            } else if (restoreSelection) {
+                this.focus();
+            }
+            if (cancel) {
+                this.vditor.options.ai?.onCancelPolish?.();
+            }
         };
-        this.aiResultPanel.open(
+        this.aiReviewPanel.open(
             markdown,
-            this.aiSelectionRect,
-            (result) => this.applyAIResult(result, this.aiReplaceAll),
-            () => discardOrCancel(false),
-            () => discardOrCancel(true),
+            {
+                onAccept: (result) => {
+                    const range = this.aiSelectionRange?.cloneRange() || null;
+                    finishReview(false, false);
+                    this.applyAIResult(result, this.aiReplaceAll, range);
+                },
+                onReject: () => finishReview(false),
+                onStop: () => finishReview(true),
+            },
         );
         telemetry(this.vditor, "markdown.ai.polish", {
             engine: options?.engine ?? "vscode",
             isSelection: !replaceAll,
         });
-        onPolish(markdown, (_result: string) => { /* unused — streaming via streamAIChunk/endAIStream */ }, options);
+        onPolish(markdown, (_result: string) => { /* streaming via streamAIChunk/endAIStream */ }, options);
     }
 
-    /** 流式接收 AI chunk，实时渲染到结果面板 */
+    /** 流式接收 AI chunk，实时更新 diff 审阅面板 */
     public streamAIChunk(chunk: string) {
-        this.aiResultPanel.stream(chunk);
+        this.aiReviewPanel.stream(chunk);
     }
 
-    /** AI 流结束，启用确认按钮 */
+    /** AI 流结束，启用 Accept 按钮 */
     public endAIStream() {
-        this.aiResultPanel.endStream();
+        this.aiReviewPanel.endStream();
     }
 
     /** 接收 AI 润色结果：退出 loading 状态，将 markdown 并入正文 */
-    public applyAIResult(markdown: string, replaceAll = false) {
+    public applyAIResult(markdown: string, replaceAll = false, selectionRange?: Range | null) {
         this.enable();
         hideFrozenSelection(this.vditor);
         if (replaceAll) {
             this.aiSelectionRange = null;
-            this.aiSelectionRect = null;
             this.setValue(markdown);
         } else {
-            restoreEditorSelection(this.vditor, this.aiSelectionRange);
+            const range = selectionRange ?? this.aiSelectionRange;
             this.aiSelectionRange = null;
-            this.aiSelectionRect = null;
-            document.execCommand("delete", false);
-            const html = this.vditor.lute.Md2HTML(markdown);
-            document.execCommand("insertHTML", false, html);
+            const editor = this.vditor[this.vditor.currentMode].element;
+            const hostBlock = hasClosestBlock(range.startContainer) as HTMLElement | null;
+            if (range && !range.collapsed
+                && editor.contains(range.startContainer)
+                && editor.contains(range.endContainer)) {
+                this.vditor[this.vditor.currentMode].preventInput = true;
+                range.deleteContents();
+                range.collapse(true);
+                setSelectionFocus(range);
+                this.vditor[this.vditor.currentMode].range = range;
+            } else {
+                restoreEditorSelection(this.vditor, range);
+                this.vditor[this.vditor.currentMode].preventInput = true;
+                document.execCommand("delete", false);
+            }
+            const editorHTML = this.vditor.currentMode === "wysiwyg"
+                ? this.vditor.lute.Md2VditorDOM(markdown.trim())
+                : this.vditor.lute.Md2VditorIRDOM(markdown.trim());
+            insertMdForAIReplace(editorHTML, this.vditor, hostBlock);
+            editor.querySelectorAll(`.vditor-${this.vditor.currentMode}__preview[data-render='2']`)
+                .forEach((item: HTMLElement) => {
+                    processCodeRender(item, this.vditor);
+                });
+            if (this.vditor.currentMode === "wysiwyg") {
+                renderCodeBlocks(this.vditor);
+            }
+            recordHistoryChange(this.vditor);
         }
     }
 
@@ -439,6 +553,7 @@ class Vditor {
         this.vditor.element.removeAttribute("style");
         this.clearCache();
 
+        unbindTypewriterMode(this.vditor);
         this.vditor.wysiwyg.unbindListener();
     }
 
@@ -458,6 +573,10 @@ class Vditor {
         this.vditor.wysiwyg = new WYSIWYG(this.vditor);
         this.vditor.ir = new IR(this.vditor);
         this.vditor.toolbar = new Toolbar(this.vditor);
+
+        if (typeof mergedOptions.onSettingsChange === "function") {
+            setOnViewerSettingsChange((settings) => mergedOptions.onSettingsChange?.(settings));
+        }
 
         if (mergedOptions.upload.url || mergedOptions.upload.handler) {
             this.vditor.upload = new Upload();
@@ -495,8 +614,8 @@ class Vditor {
                 this.aiDialog = new AIDialog(this.vditor, (markdown, isSelection, options) => {
                     this.triggerAIPolish(options, markdown, isSelection);
                 }, (reason) => {
-                    hideFrozenSelection(this.vditor);
                     if (reason !== "submit") {
+                        hideFrozenSelection(this.vditor);
                         this.aiSelectionRange = null;
                     }
                 });

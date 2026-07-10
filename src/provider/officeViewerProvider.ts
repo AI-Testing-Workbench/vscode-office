@@ -20,7 +20,9 @@ export class OfficeViewerProvider implements vscode.CustomReadonlyEditorProvider
 	bindCustomEditors(viewOption: { webviewOptions: vscode.WebviewPanelOptions }) {
 		return [
 			vscode.window.registerCustomEditorProvider('cweijan.officeViewer', this, viewOption),
+			vscode.window.registerCustomEditorProvider('cweijan.htmlViewer', this, viewOption),
 			vscode.window.registerCustomEditorProvider('cweijan.imageViewer', this, viewOption),
+			vscode.window.registerCustomEditorProvider('cweijan.parquetViewer', this, viewOption),
 		];
 	}
 
@@ -87,8 +89,12 @@ export class OfficeViewerProvider implements vscode.CustomReadonlyEditorProvider
 			case '.xmind':
 				route = 'xmind';
 				break;
+			case '.parquet':
+				route = 'parquet';
+				break;
 			case '.htm':
 			case '.html':
+			case '.xhtml':
 				if (isVirtualUri(uri)) {
 					void this.loadVirtualHtml(webviewPanel, uri, folderPath);
 				} else {

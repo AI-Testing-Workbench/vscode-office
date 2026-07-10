@@ -9,8 +9,10 @@ import {
     LINE_HEIGHT_DEFAULT,
     FONT_FAMILY_KEY,
     FONT_FAMILY_OPTIONS,
+    CODE_FONT_FAMILY_KEY,
     BOLD_COLOR_KEY,
-    BOLD_COLOR_OPTIONS,
+    getBoldColorOptions,
+    normalizeBoldColorValue,
     PAGE_WIDTH_KEY,
     PAGE_WIDTH_DEFAULT,
     PAGE_WIDTH_OPTIONS,
@@ -18,6 +20,10 @@ import {
     IMAGE_MAX_HEIGHT_KEY,
     IMAGE_MAX_WIDTH_DEFAULT,
     IMAGE_MAX_HEIGHT_DEFAULT,
+    CODE_BLOCK_MAX_HEIGHT_KEY,
+    CODE_BLOCK_MAX_HEIGHT_DEFAULT,
+    CODE_BLOCK_MAX_HEIGHT_OPTIONS,
+    TYPEWRITER_MODE_KEY,
     getAIPrompts,
     setAIPrompts,
     AIPrompt,
@@ -25,12 +31,13 @@ import {
     setAIModels,
     AIModel,
 } from "../util/globalLocalStorageSettings";
+import { getCodeFontFamilyOptions } from "../util/fontFamilyOptions";
 
 export const SETTINGS_PANEL_CLASS = "vditor-settings-panel";
 
 const EDIT_MODES = [
     { id: "wysiwyg", label: "Visual" },
-    { id: "ir", label: "Markdown" },
+    { id: "ir", label: "Source" },
 ] as const;
 
 const buildEditModeSegmentedHTML = (currentMode: string) => {
@@ -74,14 +81,48 @@ const buildLineHeightStepperHTML = (value: number) =>
     </div>`;
 
 const buildDropdownHTML = (key: string, label: string, options: readonly { label: string; value: string }[], currentValue: string) => {
-    const current = options.find(o => o.value === currentValue) ?? options[0];
+    const current = options.find(o => o.value === currentValue);
+    const displayLabel = current?.label ?? currentValue;
     return `<div class="${SETTINGS_PANEL_CLASS}__dropdown-row">
         <span class="${SETTINGS_PANEL_CLASS}__dropdown-label">${label}</span>
         <button type="button" class="${SETTINGS_PANEL_CLASS}__dropdown-trigger" data-dropdown-trigger data-dropdown-key="${key}">
-            <span class="${SETTINGS_PANEL_CLASS}__dropdown-value">${current.label}</span>
+            <span class="${SETTINGS_PANEL_CLASS}__dropdown-value">${displayLabel}</span>
             <span class="codicon codicon-chevron-down ${SETTINGS_PANEL_CLASS}__dropdown-chevron" aria-hidden="true"></span>
         </button>
     </div>`;
+};
+
+const buildToggleHTML = (key: string, label: string, checked: boolean) =>
+    `<div class="${SETTINGS_PANEL_CLASS}__toggle-row">
+        <span class="${SETTINGS_PANEL_CLASS}__toggle-label">${label}</span>
+        <button type="button" class="${SETTINGS_PANEL_CLASS}__toggle${checked ? ` ${SETTINGS_PANEL_CLASS}__toggle--on` : ""}" data-toggle-trigger data-toggle-key="${key}" role="switch" aria-checked="${checked}"></button>
+    </div>`;
+
+const parsePxValue = (value: string): number | undefined => {
+    const match = value.trim().match(/^(\d+(?:\.\d+)?)px$/i);
+    if (!match) {
+        return undefined;
+    }
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const resolveDisplayedFontSize = (vditor: IVditor, key: string, fallback: number): number => {
+    const stored = getGlobalLocalStorageSetting<number>(key);
+    if (stored !== undefined) {
+        return stored;
+    }
+
+    if (key === UI_FONT_SIZE_KEY) {
+        return parsePxValue(getComputedStyle(vditor.element).getPropertyValue("--ui-font-size")) ?? fallback;
+    }
+
+    const content = vditor.element.querySelector<HTMLElement>(".vditor-ir")
+        || vditor.element.querySelector<HTMLElement>(".vditor-wysiwyg")
+        || vditor.element;
+    return parsePxValue(getComputedStyle(vditor.element).getPropertyValue("--editor-font-size"))
+        ?? parsePxValue(getComputedStyle(content).fontSize)
+        ?? fallback;
 };
 
 
@@ -117,43 +158,43 @@ export const buildAIPromptsHTML = () => {
 };
 
 const PROVIDER_COLORS: Record<string, string> = {
-    openai:      "#10a37f",
-    anthropic:   "#d97706",
-    google:      "#4285f4",
-    gemini:      "#4285f4",
-    groq:        "#f55036",
-    ollama:      "#2563eb",
-    mistral:     "#fa520f",
-    deepseek:    "#0070f3",
-    cohere:      "#39594d",
-    azure:       "#0078d4",
-    perplexity:  "#20b2aa",
-    moonshot:    "#4f46e5",
-    zhipuai:     "#7c3aed",
-    baidu:       "#2932e1",
-    together:    "#6366f1",
-    fireworks:   "#ef4444",
-    nvidia:      "#76b900",
+    openai: "#10a37f",
+    anthropic: "#d97706",
+    google: "#4285f4",
+    gemini: "#4285f4",
+    groq: "#f55036",
+    ollama: "#2563eb",
+    mistral: "#fa520f",
+    deepseek: "#0070f3",
+    cohere: "#39594d",
+    azure: "#0078d4",
+    perplexity: "#20b2aa",
+    moonshot: "#4f46e5",
+    zhipuai: "#7c3aed",
+    baidu: "#2932e1",
+    together: "#6366f1",
+    fireworks: "#ef4444",
+    nvidia: "#76b900",
     huggingface: "#ff9900",
-    replicate:   "#000000",
-    qwen:        "#6200ea",
-    dashscope:   "#6200ea",
+    replicate: "#000000",
+    qwen: "#6200ea",
+    dashscope: "#6200ea",
     siliconflow: "#0ea5e9",
-    silicon:     "#0ea5e9",
-    xai:         "#000000",
-    minimax:     "#1a73e8",
-    minimaxi:    "#1a73e8",
-    stepfun:     "#0066ff",
-    lingyi:      "#5b4aff",
-    doubao:      "#4e6ef2",
-    volcengine:  "#4e6ef2",
-    ark:         "#4e6ef2",
-    hunyuan:     "#0052d9",
-    tencent:     "#0052d9",
-    qwen:        "#6200ea",
-    dashscope:   "#6200ea",
-    tongyi:      "#ff6a00",
-    ernie:       "#2932e1",
+    silicon: "#0ea5e9",
+    xai: "#000000",
+    minimax: "#1a73e8",
+    minimaxi: "#1a73e8",
+    stepfun: "#0066ff",
+    lingyi: "#5b4aff",
+    doubao: "#4e6ef2",
+    volcengine: "#4e6ef2",
+    ark: "#4e6ef2",
+    hunyuan: "#0052d9",
+    tencent: "#0052d9",
+    qwen: "#6200ea",
+    dashscope: "#6200ea",
+    tongyi: "#ff6a00",
+    ernie: "#2932e1",
 };
 
 export const nameFromUrl = (url: string): string => {
@@ -229,16 +270,33 @@ export const buildAIModelsHTML = () => {
     </div>`;
 };
 
+export const buildSettingsFooterHTML = () => {
+    const i18n = window.VditorI18n;
+    return `<div class="${SETTINGS_PANEL_CLASS}__footer">
+            <button type="button" class="${SETTINGS_PANEL_CLASS}__footer-btn ${SETTINGS_PANEL_CLASS}__footer-btn--edit" data-edit-settings title="${i18n.settingsEditFile ?? i18n.edit}">
+                <span class="codicon codicon-edit" aria-hidden="true"></span>
+                <span>${i18n.settingsEditFile ?? i18n.edit}</span>
+            </button>
+            <button type="button" class="${SETTINGS_PANEL_CLASS}__footer-btn ${SETTINGS_PANEL_CLASS}__footer-btn--reset" data-reset-settings title="${i18n.settingsReset ?? 'Reset'}">
+                <span class="codicon codicon-discard" aria-hidden="true"></span>
+                <span>${i18n.settingsReset ?? 'Reset'}</span>
+            </button>
+        </div>`;
+};
+
 export const buildSettingsPanelHTML = (vditor: IVditor) => {
     const i18n = window.VditorI18n;
-    const uiSize = getGlobalLocalStorageSetting<number>(UI_FONT_SIZE_KEY, UI_FONT_SIZE_DEFAULT);
-    const editorSize = getGlobalLocalStorageSetting<number>(EDITOR_FONT_SIZE_KEY, EDITOR_FONT_SIZE_DEFAULT);
+    const uiSize = resolveDisplayedFontSize(vditor, UI_FONT_SIZE_KEY, UI_FONT_SIZE_DEFAULT);
+    const editorSize = resolveDisplayedFontSize(vditor, EDITOR_FONT_SIZE_KEY, EDITOR_FONT_SIZE_DEFAULT);
     const lineHeight = getGlobalLocalStorageSetting<number>(LINE_HEIGHT_KEY, LINE_HEIGHT_DEFAULT);
     const fontFamily = getGlobalLocalStorageSetting<string>(FONT_FAMILY_KEY, FONT_FAMILY_OPTIONS[0].value);
-    const boldColor = getGlobalLocalStorageSetting<string>(BOLD_COLOR_KEY, BOLD_COLOR_OPTIONS[0].value);
+    const codeFontFamily = getGlobalLocalStorageSetting<string>(CODE_FONT_FAMILY_KEY, "inherit");
+    const boldColor = normalizeBoldColorValue(getGlobalLocalStorageSetting<string>(BOLD_COLOR_KEY));
     const pageWidth = getGlobalLocalStorageSetting<string>(PAGE_WIDTH_KEY, PAGE_WIDTH_DEFAULT) ?? PAGE_WIDTH_DEFAULT;
     const imgMaxWidth = getGlobalLocalStorageSetting<number>(IMAGE_MAX_WIDTH_KEY, IMAGE_MAX_WIDTH_DEFAULT);
     const imgMaxHeight = getGlobalLocalStorageSetting<number>(IMAGE_MAX_HEIGHT_KEY, IMAGE_MAX_HEIGHT_DEFAULT);
+    const codeBlockMaxHeight = getGlobalLocalStorageSetting<string>(CODE_BLOCK_MAX_HEIGHT_KEY, CODE_BLOCK_MAX_HEIGHT_DEFAULT) ?? CODE_BLOCK_MAX_HEIGHT_DEFAULT;
+    const typewriterMode = getGlobalLocalStorageSetting<boolean>(TYPEWRITER_MODE_KEY, false) === true;
     return `<div class="${SETTINGS_PANEL_CLASS}">
         <div class="${SETTINGS_PANEL_CLASS}__section">
             <div class="${SETTINGS_PANEL_CLASS}__title">Edit Mode</div>
@@ -255,9 +313,17 @@ export const buildSettingsPanelHTML = (vditor: IVditor) => {
             <div class="${SETTINGS_PANEL_CLASS}__title">Typography</div>
             <div class="${SETTINGS_PANEL_CLASS}__group">
                 ${buildDropdownHTML(FONT_FAMILY_KEY, "Font", FONT_FAMILY_OPTIONS, fontFamily)}
-                ${buildDropdownHTML(BOLD_COLOR_KEY, "Bold", BOLD_COLOR_OPTIONS, boldColor)}
+                ${buildDropdownHTML(BOLD_COLOR_KEY, i18n.boldColor ?? "Bold Color", getBoldColorOptions(), boldColor)}
                 ${buildDropdownHTML(PAGE_WIDTH_KEY, i18n.pageWidth, PAGE_WIDTH_OPTIONS, pageWidth)}
                 ${buildLineHeightStepperHTML(lineHeight)}
+                ${buildToggleHTML(TYPEWRITER_MODE_KEY, i18n.typewriterMode ?? "Typewriter Mode", typewriterMode)}
+            </div>
+        </div>
+        <div class="${SETTINGS_PANEL_CLASS}__section">
+            <div class="${SETTINGS_PANEL_CLASS}__title">CodeMirror</div>
+            <div class="${SETTINGS_PANEL_CLASS}__group">
+                ${buildDropdownHTML(CODE_FONT_FAMILY_KEY, "Font", getCodeFontFamilyOptions(), codeFontFamily)}
+                ${buildDropdownHTML(CODE_BLOCK_MAX_HEIGHT_KEY, i18n.codeBlockHeight, CODE_BLOCK_MAX_HEIGHT_OPTIONS, codeBlockMaxHeight)}
             </div>
         </div>
         <div class="${SETTINGS_PANEL_CLASS}__section">
@@ -267,9 +333,7 @@ export const buildSettingsPanelHTML = (vditor: IVditor) => {
                 ${buildImageStepperHTML(IMAGE_MAX_HEIGHT_KEY, i18n.imageMaxHeight, imgMaxHeight, "vh")}
             </div>
         </div>
-        <div class="${SETTINGS_PANEL_CLASS}__footer">
-            <button type="button" class="${SETTINGS_PANEL_CLASS}__reset-btn" data-reset-settings>Reset to Defaults</button>
-        </div>
+        ${buildSettingsFooterHTML()}
     </div>`;
 };
 
@@ -280,6 +344,32 @@ export const refreshSettingsPanel = (panelElement: HTMLElement, vditor: IVditor)
         button.classList.toggle(`${SETTINGS_PANEL_CLASS}__segment--current`, isCurrent);
         button.setAttribute("aria-pressed", String(isCurrent));
     }
+};
+
+const isAISettingsAddRowOpen = (panelElement: HTMLElement, selector: string) => {
+    const row = panelElement.querySelector<HTMLElement>(selector);
+    return !!row && row.style.display !== "none";
+};
+
+export const hasOpenAISettingsPromptForm = (panelElement: HTMLElement) => {
+    return !!panelElement.dataset.editingPromptId
+        || isAISettingsAddRowOpen(panelElement, "[data-ai-add-row]");
+};
+
+export const hasOpenAISettingsModelForm = (panelElement: HTMLElement) => {
+    return !!panelElement.dataset.editingModelId
+        || isAISettingsAddRowOpen(panelElement, "[data-ai-add-model-row]");
+};
+
+export const refreshAISettingsToolbarPanel = (vditor: IVditor) => {
+    const aiItem = vditor.toolbar.elements["ai-settings"];
+    if (!aiItem) return;
+    const panelElement = aiItem.querySelector(".vditor-hint") as HTMLElement | null;
+    if (!panelElement || panelElement.style.display !== "block") return;
+    const promptsEl = panelElement.querySelector("[data-ai-prompts]");
+    const modelsEl = panelElement.querySelector("[data-ai-models]");
+    if (promptsEl && !hasOpenAISettingsPromptForm(panelElement)) promptsEl.outerHTML = buildAIPromptsHTML();
+    if (modelsEl && !hasOpenAISettingsModelForm(panelElement)) modelsEl.outerHTML = buildAIModelsHTML();
 };
 
 export const refreshSettingsToolbarPanel = (vditor: IVditor) => {

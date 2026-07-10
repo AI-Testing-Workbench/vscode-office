@@ -45,7 +45,7 @@
     outline: none;
     flex: 1 1 auto;
     min-height: 1.35em;
-    max-height: 500px;
+    max-height: none;
     border-radius: 0 0 6px 6px;
     overflow: hidden;
     color: var(--cm-fg-color, var(--vscode-editor-foreground));
@@ -58,7 +58,7 @@
 
   .cm-scroller {
     overflow: auto;
-    max-height: 400px;
+    max-height: var(--cm-block-max-height, none);
     scrollbar-gutter: stable;
     font-family: inherit;
     line-height: calc(var(--vscode-editor-font-size, 13px) * 1.35);
@@ -232,6 +232,7 @@
 
   .vditor-cm-chrome__delete,
   .vditor-cm-chrome__copy,
+  .vditor-cm-chrome__expand,
   .vditor-cm-chrome__theme-trigger {
     opacity: 0;
     visibility: hidden;
@@ -313,7 +314,7 @@
   height: 28px;
   padding: 0 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--vditor-popover-radius, 6px);
   background: var(--cm-lang-trigger-bg, var(--second-bg-color, color-mix(in srgb, var(--cm-fg-color, var(--toolbar-icon-color)) 18%, var(--bg-color, var(--panel-background-color)))));
   color: var(--cm-fg-color, var(--toolbar-icon-color));
   font-size: 12px;
@@ -349,7 +350,7 @@
   height: 28px;
   padding: 0 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--vditor-popover-radius, 6px);
   background: var(--cm-lang-trigger-bg, var(--second-bg-color, color-mix(in srgb, var(--cm-fg-color, var(--toolbar-icon-color)) 18%, var(--bg-color, var(--panel-background-color)))));
   color: var(--cm-fg-color, var(--toolbar-icon-color));
   line-height: 1;
@@ -362,11 +363,7 @@
   }
 
   &--done {
-    background: color-mix(in srgb, var(--cm-copy-done-color, var(--link-color)) 12%, var(--cm-lang-trigger-bg, var(--second-bg-color, var(--dropdown-hover-background, var(--toolbar-background-color)))));
-
-    .vditor-cm-chrome__copy-icon .codicon {
-      color: var(--cm-copy-done-color, var(--link-color));
-    }
+    background: color-mix(in srgb, var(--cm-fg-color, var(--toolbar-icon-color)) 12%, var(--cm-lang-trigger-bg, var(--second-bg-color, var(--dropdown-hover-background, var(--toolbar-background-color)))));
   }
 }
 
@@ -375,7 +372,7 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  color: var(--cm-copy-color, var(--link-color));
+  color: inherit;
 
   .codicon {
     font-size: 16px;
@@ -389,7 +386,8 @@
   pointer-events: auto;
 }
 
-.vditor-cm-chrome__theme-trigger {
+.vditor-cm-chrome__theme-trigger,
+.vditor-cm-chrome__expand {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -397,7 +395,7 @@
   height: 28px;
   padding: 0 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--vditor-popover-radius, 6px);
   background: var(--cm-lang-trigger-bg, var(--second-bg-color, color-mix(in srgb, var(--cm-fg-color, var(--toolbar-icon-color)) 18%, var(--bg-color, var(--panel-background-color)))));
   color: var(--cm-fg-color, var(--toolbar-icon-color));
   line-height: 1;
@@ -409,6 +407,14 @@
     background: color-mix(in srgb, var(--cm-fg-color, var(--toolbar-icon-color)) 10%, var(--cm-lang-trigger-bg, var(--second-bg-color, var(--dropdown-hover-background, var(--toolbar-background-color)))));
     color: var(--cm-copy-color, var(--link-color));
   }
+}
+
+.vditor-cm-chrome__expand {
+  display: none;
+}
+
+.vditor-cm-host--has-overflow .vditor-cm-chrome__expand:not([hidden]) {
+  display: inline-flex;
 }
 
 .vditor-cm-chrome__theme-icon {
@@ -437,7 +443,7 @@
   overflow-x: hidden;
   padding: 4px;
   border: 1px solid color-mix(in srgb, var(--cm-fg-color, var(--toolbar-icon-color)) 14%, transparent);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--cm-bg-color, var(--panel-background-color));
   color: var(--cm-fg-color, var(--toolbar-icon-color));
   box-shadow:
@@ -482,7 +488,7 @@
     padding: 4px 10px;
     margin: 1px 4px;
     border: 0;
-    border-radius: 5px;
+    border-radius: var(--vditor-popover-radius, 6px);
     line-height: 18px;
     width: calc(100% - 8px);
     box-sizing: border-box;
@@ -520,7 +526,7 @@
   height: 28px;
   padding: 15px 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--vditor-popover-radius, 6px);
   background: var(--cm-lang-trigger-bg, var(--second-bg-color, color-mix(in srgb, var(--cm-fg-color, var(--toolbar-icon-color)) 18%, var(--bg-color, var(--panel-background-color)))));
   color: var(--cm-fg-color, var(--toolbar-icon-color));
   font-size: 12px;
@@ -544,29 +550,6 @@
   white-space: nowrap;
 }
 
-.vditor-cm-chrome__lang-chevron {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  margin-left: 2px;
-  opacity: 0.72;
-  color: var(--cm-fg-color, var(--toolbar-icon-color));
-
-  .codicon {
-    font-size: 16px;
-    line-height: 1;
-    color: inherit;
-  }
-}
-
-.vditor-cm-chrome__lang-trigger:hover:not(:disabled) .vditor-cm-chrome__lang-chevron {
-  opacity: 1;
-  color: var(--cm-copy-color, var(--link-color));
-}
-
 .vditor-cm-chrome__lang-panel {
   display: none;
   position: absolute;
@@ -576,7 +559,7 @@
   width: min(280px, calc(100vw - 32px));
   padding: 10px;
   border: 1px solid color-mix(in srgb, var(--cm-fg-color, var(--toolbar-icon-color)) 14%, transparent);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--cm-bg-color, var(--panel-background-color));
   box-shadow: 0 4px 16px color-mix(in srgb, var(--cm-fg-color, #000) 12%, transparent);
   pointer-events: auto;
@@ -598,7 +581,7 @@
   margin-bottom: 8px;
   padding: 0 12px;
   border: 2px solid color-mix(in srgb, var(--cm-fg-color, var(--toolbar-icon-color)) 14%, transparent);
-  border-radius: 6px;
+  border-radius: var(--vditor-popover-radius, 6px);
   background: color-mix(in srgb, var(--cm-bg-color, var(--panel-background-color)) 96%, transparent);
   color: var(--cm-fg-color, var(--toolbar-icon-color));
   font-size: 13px;
@@ -632,7 +615,7 @@
   width: 100%;
   padding: 6px 8px;
   border: none;
-  border-radius: 4px;
+  border-radius: 5px;
   background: transparent;
   color: var(--cm-fg-color, var(--toolbar-icon-color));
   font-size: 12px;
@@ -679,10 +662,6 @@
   .vditor-cm-chrome__lang-trigger {
     cursor: default;
     pointer-events: none;
-  }
-
-  .vditor-cm-chrome__lang-chevron {
-    display: none;
   }
 }
 
@@ -743,7 +722,7 @@
     min-height: 96px;
     max-height: min(280px, calc(100vh - 140px));
     overflow: auto;
-    font-family: var(--code-font-family, monospace);
+    font-family: var(--code-font-family);
     font-size: 12px;
     line-height: 1.5;
   }
@@ -767,6 +746,18 @@
 
   > pre:first-child > code {
     display: none !important;
+  }
+}
+
+// 懒加载屏外 placeholder：纯文本，无 CM / hljs
+[data-type="code-block"].vditor-code-block-placeholder,
+.vditor-ir__node.vditor-code-block-placeholder[data-type="code-block"] {
+  > pre.vditor-code-block-placeholder code {
+    display: block !important;
+    white-space: pre;
+    overflow-x: auto;
+    font-family: var(--code-font-family, var(--editor-font-family, monospace));
+    tab-size: 4;
   }
 }
 
@@ -852,8 +843,8 @@
 .vditor-cm-host .cm-editor .cm-scroller,
 .vditor-cm-host .cm-editor .cm-content,
 .vditor-cm-host .cm-editor .cm-line {
-  font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace) !important;
-  font-size: var(--vscode-editor-font-size, 13px);
+  font-family: var(--code-font-family) !important;
+  font-size: var(--editor-font-size, var(--vscode-editor-font-size, 13px));
   font-weight: var(--vscode-editor-font-weight, normal);
   font-feature-settings: "liga" 0, "calt" 0;
   font-variant-ligatures: none;
@@ -869,7 +860,7 @@
 
   .cm-editor,
   .cm-editor .cm-scroller {
-    font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace) !important;
+    font-family: var(--code-font-family) !important;
   }
 
   .cm-cursor,
@@ -892,7 +883,7 @@
   box-shadow: 2px 3px 5px rgba(0, 0, 0, 0.2);
   border-radius: 3px;
   background: var(--vscode-editorSuggestWidget-background);
-  font-family: var(--vscode-editor-font-family);
+  font-family: var(--code-font-family);
   font-weight: var(--vscode-font-weight);
   font-size: var(--vscode-font-size);
   max-height: 20em;
@@ -928,7 +919,7 @@
   .cm-editor {
     outline: none;
     min-height: 2em;
-    max-height: 400px;
+    max-height: var(--cm-block-max-height, none);
     border-radius: 6px;
     color: var(--cm-fg-color, var(--vscode-editor-foreground));
   }
@@ -940,9 +931,9 @@
 
   .cm-scroller {
     overflow: auto;
-    font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace) !important;
-    font-size: var(--vscode-editor-font-size, 13px);
-    line-height: calc(var(--vscode-editor-font-size, 13px) * 1.5);
+    font-family: var(--code-font-family) !important;
+    font-size: var(--editor-font-size, var(--vscode-editor-font-size, 13px));
+    line-height: calc(var(--editor-font-size, var(--vscode-editor-font-size, 13px)) * 1.5);
     .vditor-cm-scrollbar(var(--cm-bg-color, var(--code-bg-color, var(--second-bg-color))));
   }
 
@@ -1056,4 +1047,33 @@
   }
 
   // Keep preview's original display so KaTeX/min-height doesn't affect line box unexpectedly.
+}
+
+// Expandable code block: lift the height cap for a single block
+.vditor-cm-host--expanded .cm-editor,
+.vditor-cm-host--expanded .cm-scroller {
+  max-height: none;
+}
+
+// Expand/collapse toggle: base look + behaviour (incl. pointer-events:auto) are shared with
+// .vditor-cm-chrome__theme-trigger above. Here we add the icon, and the visibility: like the
+// other chrome buttons it appears on hover/focus, additionally gated to blocks that overflow.
+.vditor-cm-chrome__expand-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  color: var(--cm-fg-color, var(--toolbar-icon-color));
+
+  .codicon {
+    font-size: 16px;
+    line-height: 1;
+  }
+}
+
+.vditor-cm-host--has-overflow:hover .vditor-cm-chrome__expand,
+.vditor-cm-host--has-overflow:has(.cm-editor.cm-focused) .vditor-cm-chrome__expand {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }

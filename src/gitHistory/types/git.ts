@@ -27,6 +27,8 @@ export interface GitCommit {
     readonly tags: ReadonlyArray<GitCommitTag>;
     readonly remotes: ReadonlyArray<GitCommitRemote>;
     readonly stash: GitCommitStash | null;
+    /** Whether the commit is reachable from the current HEAD (ancestor). */
+    readonly onCurrentBranch?: boolean;
 }
 
 export type GitFileStatus = 'A' | 'M' | 'D' | 'R' | 'U';
@@ -107,11 +109,25 @@ export interface LoadCommitsRequest {
     readonly relPath?: string;
 }
 
+export interface LoadAuthorsRequest {
+    readonly repo: string;
+    readonly branches: ReadonlyArray<string> | null;
+    readonly showTags: boolean;
+    readonly showRemoteBranches: boolean;
+    readonly includeCommitsMentionedByReflogs: boolean;
+    readonly onlyFollowFirstParent: boolean;
+    readonly commitOrdering: CommitOrdering;
+    readonly remotes: ReadonlyArray<string>;
+    readonly hideRemotes: ReadonlyArray<string>;
+    readonly stashes: ReadonlyArray<GitStash>;
+    readonly searchValue?: string;
+    readonly relPath?: string;
+}
+
 export interface LoadRepositoryRequest {
     readonly repo: string;
     readonly showRemoteBranches: boolean;
     readonly showStashes: boolean;
-    readonly invalidateCache?: boolean;
     readonly branches: ReadonlyArray<string> | null;
     readonly maxCommits: number;
     readonly showTags: boolean;

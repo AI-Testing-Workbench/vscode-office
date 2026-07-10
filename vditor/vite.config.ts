@@ -44,6 +44,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: "dist",
+      cssMinify: 'esbuild',
       minify: mode === "production",
       target: "es2015",
       lib: {
@@ -62,8 +63,8 @@ export default defineConfig(({ mode }) => {
     plugins: [
       viteStaticCopy({
         targets: [
-          { src: "src/css", dest: "." },
-          { src: "src/js", dest: "." },
+          { src: "src/css", dest: ".", rename: { stripBase: 1 } },
+          { src: "src/js", dest: ".", rename: { stripBase: 1 } },
         ],
       }),
       copyBuildToResource(),

@@ -1,6 +1,5 @@
 import {getEventName} from "../util/compatibility";
 import {FindBar} from "../ui/FindBar";
-import {telemetry} from "../util/telemetry";
 import {MenuItem} from "./MenuItem";
 
 export class Find extends MenuItem {
@@ -19,19 +18,10 @@ export class Find extends MenuItem {
             return findBar;
         };
 
-        const open = () => {
-            const bar = getOrCreateBar();
-            if (!bar.isVisible()) bar.show();
-        };
-
         btn.addEventListener(getEventName(), (e) => {
             e.preventDefault();
             const bar = getOrCreateBar();
-            const willOpen = !bar.isVisible();
-            bar.toggle();
-            if (willOpen) {
-                telemetry(vditor, "markdown.find.open", { source: "toolbar" });
-            }
+            bar.toggle(false);
         });
 
         document.addEventListener("keydown", (e) => {
@@ -41,8 +31,18 @@ export class Find extends MenuItem {
                 if (bar.isVisible()) {
                     bar.focusInput();
                 } else {
-                    bar.show();
-                    telemetry(vditor, "markdown.find.open", { source: "shortcut" });
+                    bar.show(true);
+                }
+                return;
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key === "r") {
+                e.preventDefault();
+                const bar = getOrCreateBar();
+                if (bar.isVisible()) {
+                    bar.focusReplaceInput();
+                } else {
+                    bar.showReplace();
                 }
             }
         });

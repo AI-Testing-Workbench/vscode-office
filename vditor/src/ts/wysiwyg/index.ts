@@ -9,6 +9,7 @@ import {
     focusEvent,
     hotkeyEvent,
     selectEvent,
+    wheelZoomFontSizeEvent,
 } from "../util/editorCommonEvent";
 import { isHeadingMD, isHrMD, paste, splitHeadingOnNewline } from "../util/fixBrowserBehavior";
 import { insertPastedCode } from "../util/processCode";
@@ -19,6 +20,7 @@ import {
 import { hasClosestByHeadings } from "../util/hasClosestByHeadings";
 import { isDeleteInput } from "../util/instantHistory";
 import { flushBufferedHistory, trackHistoryInputFromEvent } from "../util/historyInputBuffer";
+import { canUsePlainTextFastPath } from "../util/plainTextFastPath";
 import {
     preventImpreciseLineStartClick,
     getCursorPosition,
@@ -26,9 +28,18 @@ import {
     getSelectPosition,
     setRangeByWbr,
 } from "../util/selection";
-import { clickToc, renderToc } from "../util/toc";
+import { clickToc, scheduleRenderToc } from "../util/toc";
+import { scheduleHighlightToolbar } from "../util/highlightToolbar";
 import { afterRenderEvent } from "./afterRenderEvent";
-import { genAPopover, genImagePopover, genLinkRefPopover, highlightToolbarWYSIWYG } from "./highlightToolbarWYSIWYG";
+import {
+    genAPopover,
+    genImagePopover,
+    genLinkRefPopover,
+    getPopoverSourceElement,
+    highlightToolbarWYSIWYG,
+    isElementVisibleInEditorViewport,
+    repositionEditPopover,
+} from "./highlightToolbarWYSIWYG";
 import { getRenderElementNextNode, modifyPre } from "./inlineTag";
 import { input } from "./input";
 import {
@@ -38,9 +49,11 @@ import {
     isSpecialBlock,
     isSpecialPreviewBlock,
     sanitizeCodeBlocksInCopyFragment,
+    setupLazyCodeMirrorObserver,
 } from "../codeBlock/codeMirrorManager";
 import { focusWysiwygCodeBlock, showCode } from "./showCode";
 import { getMarkdown } from "../markdown/getMarkdown";
+import { fireContentInput } from "../util/saveToolbarState";
 import { initBlockHandle } from "./blockHandle";
 import { linkClickEvent } from "../util/linkClick";
 import { initTableHandle } from "./tableHandle";
@@ -81,15 +94,25 @@ class WYSIWYG {
         dblclickEvent(vditor, this.element);
         blurEvent(vditor, this.element);
         hotkeyEvent(vditor, this.element);
+        wheelZoomFontSizeEvent(vditor, this.element);
         selectEvent(vditor, this.element);
         dropEvent(vditor, this.element);
         copyEvent(vditor, this.element, this.copy);
         cutEvent(vditor, this.element, this.copy);
         bindImageLoadingState(this.element);
+        setupLazyCodeMirrorObserver(vditor);
     }
 
     public unbindListener() {
         window.removeEventListener("scroll", this.scrollListener);
+    }
+
+    private isAbsoluteEditPopover() {
+        return this.popover.classList.contains("vditor-panel--link")
+            || this.popover.classList.contains("vditor-panel--link-ref")
+            || this.popover.classList.contains("vditor-panel--image")
+            || this.popover.classList.contains("vditor-panel--html-inline")
+            || this.popover.classList.contains("vditor-panel--front-matter");
     }
 
     private copy(event: ClipboardEvent, vditor: IVditor) {
@@ -121,14 +144,25 @@ class WYSIWYG {
         const codeElement = hasClosestByMatchTag(range.startContainer, "CODE");
         const codeEndElement = hasClosestByMatchTag(range.endContainer, "CODE");
         if (codeElement && codeEndElement && codeEndElement.isSameNode(codeElement)) {
-            let codeText = "";
             if (codeElement.parentElement.tagName === "PRE") {
-                codeText = range.toString();
-            } else {
-                codeText = "`" + range.toString() + "`";
+                event.clipboardData.setData("text/plain", range.toString());
+                event.clipboardData.setData("text/html", buildCopiedCodeHTML(codeElement, range.toString(), true));
+                return;
             }
-            event.clipboardData.setData("text/plain", codeText);
-            event.clipboardData.setData("text/html", "");
+
+            event.clipboardData.setData("text/plain", range.toString());
+            event.clipboardData.setData("text/html", buildCopiedCodeHTML(codeElement, range.toString(), false));
+            return;
+        }
+
+        const rangeElement = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE ?
+            range.commonAncestorContainer as HTMLElement :
+            range.commonAncestorContainer.parentElement) as HTMLElement | null;
+        if (rangeElement && rangeElement.children.length === 1 && rangeElement.firstElementChild?.tagName === "CODE") {
+            const onlyCodeChild = rangeElement.firstElementChild as HTMLElement;
+            event.clipboardData.setData("text/plain", range.toString());
+            event.clipboardData.setData("text/html", buildCopiedCodeHTML(onlyCodeChild, range.toString(),
+                rangeElement.tagName === "PRE"));
             return;
         }
 
@@ -160,6 +194,17 @@ class WYSIWYG {
             if (this.popover.style.display !== "block") {
                 return;
             }
+            if (this.isAbsoluteEditPopover()) {
+                const sourceElement = getPopoverSourceElement(vditor);
+                if (sourceElement && !isElementVisibleInEditorViewport(this.element, sourceElement)) {
+                    hidePanel(vditor, ["popover"]);
+                    return;
+                }
+                if (sourceElement) {
+                    repositionEditPopover(vditor, sourceElement);
+                }
+                return;
+            }
             const top = parseInt(this.popover.getAttribute("data-top"), 10);
             if (vditor.options.height !== "auto") {
                 if (vditor.options.toolbarConfig.pin && vditor.toolbar.element.getBoundingClientRect().top === 0) {
@@ -176,6 +221,17 @@ class WYSIWYG {
         this.element.addEventListener("scroll", () => {
             hidePanel(vditor, ["hint"]);
             if (this.popover.style.display !== "block") {
+                return;
+            }
+            if (this.isAbsoluteEditPopover()) {
+                const sourceElement = getPopoverSourceElement(vditor);
+                if (sourceElement && !isElementVisibleInEditorViewport(this.element, sourceElement)) {
+                    hidePanel(vditor, ["popover"]);
+                    return;
+                }
+                if (sourceElement) {
+                    repositionEditPopover(vditor, sourceElement);
+                }
                 return;
             }
             const top = parseInt(this.popover.getAttribute("data-top"), 10) - vditor.wysiwyg.element.scrollTop;
@@ -206,7 +262,7 @@ class WYSIWYG {
             const headingElement = hasClosestByHeadings(getSelection().getRangeAt(0).startContainer);
             if (headingElement && headingElement.textContent === "") {
                 // heading 为空删除 https://github.com/Vanessa219/vditor/issues/150
-                renderToc(vditor);
+                scheduleRenderToc(vditor);
                 return;
             }
             if (!isFirefox()) {
@@ -281,18 +337,25 @@ class WYSIWYG {
             const headingElement = hasClosestByHeadings(getSelection().getRangeAt(0).startContainer);
             if (headingElement && headingElement.textContent === "") {
                 // heading 为空删除 https://github.com/Vanessa219/vditor/issues/150
-                renderToc(vditor);
+                scheduleRenderToc(vditor);
                 headingElement.remove();
             } else if (headingElement && splitHeadingOnNewline(vditor, headingElement)) {
-                renderToc(vditor);
+                scheduleRenderToc(vditor);
             }
 
             if ((startSpace && blockElement.getAttribute("data-type") !== "code-block")
                 || endSpace || isHeadingMD(blockElement.innerHTML) ||
                 (isHrMD(blockElement.innerHTML) && blockElement.previousElementSibling)) {
-                if (typeof vditor.options.input === "function") {
-                    vditor.options.input(getMarkdown(vditor));
+                fireContentInput(vditor, getMarkdown(vditor));
+                if (shouldFlushHistory) {
+                    flushBufferedHistory(vditor);
+                } else {
+                    afterRenderEvent(vditor);
                 }
+                return;
+            }
+
+            if (canUsePlainTextFastPath(vditor, event)) {
                 if (shouldFlushHistory) {
                     flushBufferedHistory(vditor);
                 } else {
@@ -463,7 +526,7 @@ class WYSIWYG {
                 expandMarkerWithMathSync(range, vditor);
             }
 
-            highlightToolbarWYSIWYG(vditor);
+            scheduleHighlightToolbar(vditor);
 
             if (event.key !== "ArrowDown" && event.key !== "ArrowRight" && event.key !== "Backspace"
                 && event.key !== "ArrowLeft" && event.key !== "ArrowUp") {
@@ -544,5 +607,27 @@ class WYSIWYG {
         });
     }
 }
+
+const buildCopiedCodeHTML = (sourceCodeElement: HTMLElement, text: string, wrapPre: boolean) => {
+    const codeElement = document.createElement("code");
+    codeElement.className = sourceCodeElement.className;
+    codeElement.textContent = text;
+    for (const name of sourceCodeElement.getAttributeNames()) {
+        if (name === "class") {
+            continue;
+        }
+        const value = sourceCodeElement.getAttribute(name);
+        if (value !== null) {
+            codeElement.setAttribute(name, value);
+        }
+    }
+    if (!wrapPre) {
+        return codeElement.outerHTML;
+    }
+
+    const preElement = document.createElement("pre");
+    preElement.appendChild(codeElement);
+    return preElement.outerHTML;
+};
 
 export { WYSIWYG };
