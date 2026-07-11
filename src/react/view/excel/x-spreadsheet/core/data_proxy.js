@@ -115,7 +115,7 @@ const defaultSettings = {
 };
 
 const toolbarHeight = 41;
-const formulaBarHeight = 26;
+const formulaBarHeight = 36;
 const bottombarHeight = 41;
 const MIN_ZOOM_SCALE = 0.5;
 const MAX_ZOOM_SCALE = 2;

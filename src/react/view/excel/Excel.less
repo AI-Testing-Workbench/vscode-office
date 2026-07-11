@@ -79,8 +79,7 @@ body:has(.excel-app) {
     }
 
     .x-spreadsheet-formula-bar {
-        background: #ffffff;
-        border-bottom-color: #e1e4e8;
+        background: var(--excel-header-bg);
         color: #1a202c;
     }
 
@@ -605,25 +604,28 @@ body.office-dark .excel-viewer {
     scrollbar-color: var(--excel-scrollbar-thumb) var(--excel-scrollbar-track);
 
     .x-spreadsheet-formula-bar {
-        background: var(--excel-bg);
-        border-bottom-color: var(--excel-border);
+        background: var(--excel-header-bg);
         color: var(--excel-fg);
 
         .x-spreadsheet-formula-bar-name {
-            border-right-color: var(--excel-border);
+            border-color: var(--excel-border);
+            background: var(--excel-cell-bg);
 
             &:focus {
                 background: color-mix(in srgb, var(--excel-selection) 8%, transparent);
-                box-shadow: inset 0 -2px 0 var(--excel-selection);
+                border-color: var(--excel-selection);
+                box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--excel-selection) 35%, transparent);
             }
         }
 
         .x-spreadsheet-formula-bar-input {
-            background: transparent;
+            border-color: var(--excel-border);
+            background: var(--excel-cell-bg);
 
             &:focus {
                 background: color-mix(in srgb, var(--excel-selection) 8%, transparent);
-                box-shadow: inset 0 -2px 0 var(--excel-selection);
+                border-color: var(--excel-selection);
+                box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--excel-selection) 35%, transparent);
             }
         }
     }
