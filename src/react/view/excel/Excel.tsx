@@ -127,12 +127,20 @@ function ExcelViewer() {
         if (!adaptiveColorMode) {
             return;
         }
-        return observeVscodeThemeChange(() => setVscodeDark(isVscodeEditorDark()));
+        return observeVscodeThemeChange(() => {
+            setVscodeDark(isVscodeEditorDark());
+            requestAnimationFrame(() => spreadSheetRef.current?.reRender());
+        });
     }, [adaptiveColorMode]);
 
     useEffect(() => {
+        document.body.classList.toggle('office-adaptive', adaptiveColorMode)
         document.body.classList.toggle('office-dark', themedDark)
-    }, [themedDark])
+        return () => {
+            document.body.classList.remove('office-adaptive')
+            document.body.classList.remove('office-dark')
+        }
+    }, [adaptiveColorMode, themedDark])
 
     const toggleColorMode = () => {
         setColorMode(prev => {
@@ -147,7 +155,7 @@ function ExcelViewer() {
 
     useEffect(() => {
         spreadSheetRef.current?.reRender()
-    }, [themedDark])
+    }, [adaptiveColorMode, themedDark])
 
     const handleSaveAs = useCallback(() => {
         setSaveAsVisible(true);
