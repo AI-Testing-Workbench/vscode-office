@@ -373,7 +373,13 @@
 						"filenamePattern": "*.xlsm"
 					},
 					{
-						"filenamePattern": "*.csv"
+						"filenamePattern": "file:/**/*.csv"
+					},
+					{
+						"filenamePattern": "vscode-vfs:/**/*.csv"
+					},
+					{
+						"filenamePattern": "vscode-remote:/**/*.csv"
 					},
 					{
 						"filenamePattern": "*.tsv"
@@ -382,7 +388,13 @@
 						"filenamePattern": "*.ods"
 					},
 					{
-						"filenamePattern": "*.docx"
+						"filenamePattern": "file:/**/*.docx"
+					},
+					{
+						"filenamePattern": "vscode-vfs:/**/*.docx"
+					},
+					{
+						"filenamePattern": "vscode-remote:/**/*.docx"
 					},
 					{
 						"filenamePattern": "*.dotx"
