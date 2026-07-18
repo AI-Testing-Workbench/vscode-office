@@ -95,6 +95,10 @@ function restoreViewState(spreadSheet: Spreadsheet, saved: ExcelViewState) {
     spreadSheet.scrollToCell(ri, ci, sheetIndex);
 }
 
+function isCsvLikeExt(ext: string): boolean {
+    return /^(csv|tsv)$/i.test(ext.replace(/^\./, ''));
+}
+
 function ExcelViewer() {
     const { message, modal } = App.useApp();
     const [loading, setLoading] = useState(true)
@@ -311,6 +315,7 @@ function ExcelViewer() {
             const spreadSheet = new Spreadsheet(container, {
                 mode: fileReadOnly ? 'read' : 'edit',
                 showToolbar: true,
+                showEditInVSCode: isCsvLikeExt(payload.ext ?? ''),
                 row: { len: viewRowLen, height: 30 },
                 col: { len: viewColLen },
                 view: { height: () => window.innerHeight - 2 },
@@ -323,6 +328,7 @@ function ExcelViewer() {
                 spreadSheet.on('save', () => void handleSave());
             }
             spreadSheet.on('save-as', () => { void handleSaveAs(); });
+            spreadSheet.on('edit-in-vscode', () => { handler.emit('editInVSCode', true); });
             spreadSheet.on('find', () => {
                 if (findPanelRef.current) {
                     if (findPanelRef.current !== 'find') {

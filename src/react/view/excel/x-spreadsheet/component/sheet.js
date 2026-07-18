@@ -1007,6 +1007,10 @@ function toolbarChange(type, value) {
     this.trigger('save-as');
     return;
   }
+  if (type === 'edit-in-vscode') {
+    this.trigger('edit-in-vscode');
+    return;
+  }
   if (type === 'find') {
     this.trigger('find');
     return;

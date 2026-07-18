@@ -23,6 +23,7 @@ export default {
     autofilter: '自動篩選',
     formula: '函式',
     find: '尋找',
+    editInVscode: '在 VS Code 中編輯',
     save: '儲存',
     saveAs: '另存新檔',
     more: '更多',

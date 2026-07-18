@@ -12,6 +12,7 @@ const CODICON_MAP = {
   clearformat: 'eraser',
   textwrap: 'word-wrap',
   ellipsis: 'more',
+  vscode: 'vscode',
   save: 'save',
   'save-as': 'save-as',
   find: 'search',
