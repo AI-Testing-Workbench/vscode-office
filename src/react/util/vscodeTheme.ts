@@ -63,10 +63,13 @@ export function observeVscodeThemeChange(onChange: () => void): () => void {
     headObserver.observe(document.head, { childList: true, subtree: true, attributes: true });
     const bodyObserver = new MutationObserver(schedule);
     bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
+    const rootObserver = new MutationObserver(schedule);
+    rootObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
     return () => {
         clearTimeout(timer);
         headObserver.disconnect();
         bodyObserver.disconnect();
+        rootObserver.disconnect();
     };
 }
 

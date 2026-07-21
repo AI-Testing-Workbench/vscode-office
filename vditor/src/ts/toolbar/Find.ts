@@ -21,7 +21,11 @@ export class Find extends MenuItem {
         btn.addEventListener(getEventName(), (e) => {
             e.preventDefault();
             const bar = getOrCreateBar();
-            bar.toggle(false);
+            if (bar.isVisible()) {
+                bar.focusInput();
+            } else {
+                bar.show(true);
+            }
         });
 
         document.addEventListener("keydown", (e) => {

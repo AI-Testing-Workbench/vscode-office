@@ -18,7 +18,36 @@ const normalizeFragment = (fragment: string) => {
     if (!trimmed) {
         return "";
     }
-    return trimmed.startsWith("#") ? trimmed.slice(1) : trimmed;
+    const withoutHash = trimmed.startsWith("#") ? trimmed.slice(1) : trimmed;
+    try {
+        return decodeURIComponent(withoutHash.replace(/\+/g, " "));
+    } catch {
+        return withoutHash;
+    }
+};
+
+const findFootnoteElement = (editorElement: HTMLElement, label: string): HTMLElement | null => {
+    const normalizedLabel = label.trim();
+    if (!normalizedLabel) {
+        return null;
+    }
+    const escapedLabel = CSS.escape(normalizedLabel);
+    const selectors = [
+        `[data-type="footnotes-def"][data-marker="${escapedLabel}"]`,
+        `[data-type="footnotes-block"] li[data-marker="${escapedLabel}"]`,
+    ];
+    for (const selector of selectors) {
+        const footnote = editorElement.querySelector(selector);
+        if (footnote instanceof HTMLElement) {
+            return footnote;
+        }
+    }
+    for (const footnote of editorElement.querySelectorAll("[data-type='footnotes-def'], [data-type='footnotes-block'] li")) {
+        if (footnote instanceof HTMLElement && footnote.textContent?.trim().startsWith(`[^${normalizedLabel}]:`)) {
+            return footnote;
+        }
+    }
+    return null;
 };
 
 const scrollBlockIntoView = (vditor: IVditor, blockElement: HTMLElement) => {
@@ -43,6 +72,10 @@ const findBlockElement = (editorElement: HTMLElement, fragment: string): HTMLEle
         return null;
     }
 
+    if (normalized.startsWith("footnote:")) {
+        return findFootnoteElement(editorElement, normalized.slice("footnote:".length));
+    }
+
     const blockId = normalized.startsWith("^") ? normalized.slice(1) : normalized;
     if (blockId) {
         const byAttr = editorElement.querySelector(`[data-block-id="${CSS.escape(blockId)}"]`);
@@ -64,6 +97,7 @@ const findBlockElement = (editorElement: HTMLElement, fragment: string): HTMLEle
         `#${CSS.escape("wysiwyg-" + normalized)}`,
         `#${CSS.escape("ir-" + normalized)}`,
         `#${CSS.escape(normalized)}`,
+        `[name="${CSS.escape(normalized)}"]`,
     ];
     for (const selector of headingSelectors) {
         const heading = editorElement.querySelector(selector);

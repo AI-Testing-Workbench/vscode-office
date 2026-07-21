@@ -78,6 +78,11 @@ body:has(.excel-app) {
         }
     }
 
+    .x-spreadsheet-formula-bar {
+        background: var(--excel-header-bg);
+        color: #1a202c;
+    }
+
     .x-spreadsheet-contextmenu {
         font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
         font-size: var(--vscode-font-size, 13px);
@@ -390,7 +395,7 @@ body:has(.excel-app) {
 
     .excel-footer-actions .dark-mode-toggle {
         position: fixed;
-        top: 7px;
+        top: 5px;
         right: 10px;
         bottom: auto;
         z-index: 1001;
@@ -564,32 +569,38 @@ body:has(.excel-app) {
     }
 }
 
-// VS Code adaptive theme tokens (body.office-dark follows editor luminance in adaptive mode)
-body.office-dark .excel-viewer {
-    --excel-bg: var(--vscode-editor-background, #1e1e1e);
-    --excel-fg: var(--vscode-editor-foreground, #cccccc);
-    --excel-cell-bg: var(--vscode-editor-background, #1e1e1e);
-    --excel-header-bg: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-sideBarSectionHeader-background, #252526));
-    --excel-header-fg: var(--vscode-descriptionForeground, rgba(204, 204, 204, 0.7));
-    --excel-grid-line: var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.45)));
-    --excel-border: var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.45)));
-    --excel-hover: var(--vscode-list-hoverBackground, rgba(90, 93, 94, 0.31));
-    --excel-active-bg: var(--vscode-list-activeSelectionBackground, #292d35);
-    --excel-active-fg: var(--vscode-list-activeSelectionForeground, #d7dae0);
+// VS Code adaptive theme tokens (body.office-adaptive follows editor colors in light and dark themes)
+body.office-adaptive .excel-viewer {
+    --excel-bg: var(--vscode-editor-background, #ffffff);
+    --excel-fg: var(--vscode-editor-foreground, #1f2328);
+    --excel-cell-bg: var(--vscode-editor-background, #ffffff);
+    --excel-header-bg: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-sideBarSectionHeader-background, #f3f3f3));
+    --excel-header-fg: var(--vscode-descriptionForeground, rgba(31, 35, 40, 0.72));
+    --excel-grid-line: var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(31, 35, 40, 0.16)));
+    --excel-border: var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(31, 35, 40, 0.16)));
+    --excel-hover: var(--vscode-list-hoverBackground, rgba(0, 0, 0, 0.06));
+    --excel-active-bg: var(--vscode-list-activeSelectionBackground, rgba(0, 120, 212, 0.12));
+    --excel-active-fg: var(--vscode-list-activeSelectionForeground, var(--vscode-textLink-foreground, #0563c1));
     --excel-accent: var(--vscode-textLink-foreground, #3794ff);
     --excel-accent-soft: var(--vscode-editor-selectionBackground, rgba(103, 118, 150, 0.38));
     --excel-selection: var(--vscode-textLink-foreground, #3794ff);
     --excel-selection-fill: color-mix(in srgb, var(--vscode-textLink-foreground, #3794ff) 22%, transparent);
-    --excel-scrollbar-track: var(--vscode-editor-background, #1e1e1e);
-    --excel-scrollbar-thumb: var(--vscode-scrollbarSlider-background, #797979);
-    --excel-scrollbar-thumb-hover: var(--vscode-scrollbarSlider-hoverBackground, var(--vscode-scrollbarSlider-background, #797979));
-    --excel-input-bg: var(--vscode-input-background, #3c3c3c);
-    --excel-input-fg: var(--vscode-input-foreground, #cccccc);
+    --excel-scrollbar-track: var(--vscode-editor-background, #ffffff);
+    --excel-scrollbar-thumb: var(--vscode-scrollbarSlider-background, rgba(100, 100, 100, 0.4));
+    --excel-scrollbar-thumb-hover: var(--vscode-scrollbarSlider-hoverBackground, var(--vscode-scrollbarSlider-background, rgba(100, 100, 100, 0.55)));
+    --excel-input-bg: var(--vscode-input-background, var(--vscode-editor-background, #ffffff));
+    --excel-input-fg: var(--vscode-input-foreground, var(--vscode-editor-foreground, #1f2328));
     --excel-input-border: var(--vscode-input-border, rgba(128, 128, 128, 0.35));
-    --excel-widget-bg: var(--vscode-editorWidget-background, #252526);
-    --excel-widget-fg: var(--vscode-editorWidget-foreground, #cccccc);
+    --excel-widget-bg: var(--vscode-editorWidget-background, var(--vscode-menu-background, #ffffff));
+    --excel-widget-fg: var(--vscode-editorWidget-foreground, var(--vscode-menu-foreground, #1f2328));
     --excel-muted-line: var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.35)));
     --excel-locked-indicator: color-mix(in srgb, var(--vscode-charts-green, #73c991) 38%, transparent);
+    --excel-toolbar-icon-filter: brightness(0) opacity(0.58);
+    --excel-toolbar-icon-active-filter: brightness(0) opacity(0.82);
+    --excel-toolbar-chevron-filter: brightness(0) opacity(0.38);
+    --excel-control-border: color-mix(in srgb, var(--excel-fg) 18%, transparent);
+    --excel-control-separator: color-mix(in srgb, var(--excel-fg) 10%, transparent);
+    --excel-control-hover: color-mix(in srgb, var(--excel-fg) 7%, transparent);
 
     min-height: 100vh;
     background-color: var(--excel-bg);
@@ -597,6 +608,33 @@ body.office-dark .excel-viewer {
     font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
     font-size: var(--vscode-font-size, 13px);
     scrollbar-color: var(--excel-scrollbar-thumb) var(--excel-scrollbar-track);
+
+    .x-spreadsheet-formula-bar {
+        background: var(--excel-header-bg);
+        color: var(--excel-fg);
+
+        .x-spreadsheet-formula-bar-name {
+            border-color: var(--excel-border);
+            background: var(--excel-cell-bg);
+
+            &:focus {
+                background: color-mix(in srgb, var(--excel-selection) 8%, transparent);
+                border-color: var(--excel-selection);
+                box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--excel-selection) 35%, transparent);
+            }
+        }
+
+        .x-spreadsheet-formula-bar-input {
+            border-color: var(--excel-border);
+            background: var(--excel-cell-bg);
+
+            &:focus {
+                background: color-mix(in srgb, var(--excel-selection) 8%, transparent);
+                border-color: var(--excel-selection);
+                box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--excel-selection) 35%, transparent);
+            }
+        }
+    }
 
     &::-webkit-scrollbar {
         width: 10px;
@@ -683,19 +721,19 @@ body.office-dark .excel-viewer {
         font-size: var(--vscode-font-size, 13px);
 
         .x-spreadsheet-icon-img {
-            filter: brightness(0) invert(1);
+            filter: var(--excel-toolbar-icon-filter);
             opacity: 0.75;
         }
 
         .x-spreadsheet-toolbar-btn:hover .x-spreadsheet-icon-img,
         .x-spreadsheet-toolbar-btn.active .x-spreadsheet-icon-img {
-            filter: brightness(0) invert(1);
+            filter: var(--excel-toolbar-icon-active-filter);
             opacity: 1;
         }
 
         .x-spreadsheet-toolbar-btn:hover,
         .x-spreadsheet-toolbar-btn.active {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--excel-control-hover);
         }
 
         // Hide the spurious arrow-right line in dropdown buttons
@@ -709,7 +747,7 @@ body.office-dark .excel-viewer {
             align-items: center;
             height: 26px;
             border-radius: 7px;
-            border: 1px solid rgba(255, 255, 255, 0.18);
+            border: 1px solid var(--excel-control-border);
             background: transparent;
             overflow: visible;
             margin: 6px 2px 0;
@@ -724,7 +762,7 @@ body.office-dark .excel-viewer {
 
             .x-spreadsheet-toolbar-btn:first-child {
                 width: 120px;
-                border-right: 1px solid rgba(255, 255, 255, 0.09);
+                border-right: 1px solid var(--excel-control-separator);
                 border-radius: 6px 0 0 6px;
                 padding: 0 4px 0 8px;
                 background: transparent;
@@ -774,12 +812,12 @@ body.office-dark .excel-viewer {
                 top: -1px;
 
                 .x-spreadsheet-icon-img {
-                    filter: brightness(0) invert(1) opacity(0.38) !important;
+                    filter: var(--excel-toolbar-chevron-filter) !important;
                 }
             }
 
             .x-spreadsheet-toolbar-btn:hover {
-                background: rgba(255, 255, 255, 0.08) !important;
+                background: var(--excel-control-hover) !important;
             }
         }
 
@@ -789,7 +827,7 @@ body.office-dark .excel-viewer {
             align-items: center;
             height: 26px;
             border-radius: 7px;
-            border: 1px solid rgba(255, 255, 255, 0.18);
+            border: 1px solid var(--excel-control-border);
             background: transparent;
             margin: 6px 2px 0;
 
@@ -820,7 +858,7 @@ body.office-dark .excel-viewer {
                 }
 
                 &:hover {
-                    background: rgba(255, 255, 255, 0.08) !important;
+                    background: var(--excel-control-hover) !important;
                 }
             }
 
@@ -833,7 +871,7 @@ body.office-dark .excel-viewer {
                 top: -1px;
 
                 .x-spreadsheet-icon-img {
-                    filter: brightness(0) invert(1) opacity(0.38) !important;
+                    filter: var(--excel-toolbar-chevron-filter) !important;
                 }
             }
         }
@@ -909,7 +947,7 @@ body.office-dark .excel-viewer {
             }
 
             .x-spreadsheet-icon-img {
-                filter: brightness(0) invert(1);
+                filter: var(--excel-toolbar-icon-filter);
                 opacity: 0.55;
             }
 
@@ -1112,6 +1150,36 @@ body.office-dark .excel-viewer {
     }
 }
 
+body.office-adaptive.office-dark .excel-viewer {
+    --excel-bg: var(--vscode-editor-background, #1e1e1e);
+    --excel-fg: var(--vscode-editor-foreground, #cccccc);
+    --excel-cell-bg: var(--vscode-editor-background, #1e1e1e);
+    --excel-header-bg: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-sideBarSectionHeader-background, #252526));
+    --excel-header-fg: var(--vscode-descriptionForeground, rgba(204, 204, 204, 0.7));
+    --excel-grid-line: var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.45)));
+    --excel-border: var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.45)));
+    --excel-hover: var(--vscode-list-hoverBackground, rgba(90, 93, 94, 0.31));
+    --excel-active-bg: var(--vscode-list-activeSelectionBackground, #292d35);
+    --excel-active-fg: var(--vscode-list-activeSelectionForeground, #d7dae0);
+    --excel-scrollbar-track: var(--vscode-editor-background, #1e1e1e);
+    --excel-scrollbar-thumb: var(--vscode-scrollbarSlider-background, #797979);
+    --excel-scrollbar-thumb-hover: var(--vscode-scrollbarSlider-hoverBackground, var(--vscode-scrollbarSlider-background, #797979));
+    --excel-input-bg: var(--vscode-input-background, #3c3c3c);
+    --excel-input-fg: var(--vscode-input-foreground, #cccccc);
+    --excel-widget-bg: var(--vscode-editorWidget-background, #252526);
+    --excel-widget-fg: var(--vscode-editorWidget-foreground, #cccccc);
+    --excel-toolbar-icon-filter: brightness(0) invert(1);
+    --excel-toolbar-icon-active-filter: brightness(0) invert(1);
+    --excel-toolbar-chevron-filter: brightness(0) invert(1) opacity(0.38);
+    --excel-control-border: rgba(255, 255, 255, 0.18);
+    --excel-control-separator: rgba(255, 255, 255, 0.09);
+    --excel-control-hover: rgba(255, 255, 255, 0.08);
+}
+
+body.office-adaptive {
+    background-color: var(--vscode-editor-background, #ffffff);
+}
+
 body.office-dark {
     background-color: var(--vscode-editor-background, #1e1e1e);
 }
@@ -1131,7 +1199,6 @@ body.office-dark {
 
     // ── Toolbar ──────────────────────────────────────────────────────────────
     .x-spreadsheet-toolbar {
-        height: 42px;
         font-family: var(--apple-font);
 
         .x-spreadsheet-toolbar-btn {

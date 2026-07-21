@@ -126,10 +126,11 @@ export const resolveLinkClickFromTarget = (
     if (aElement) {
         const rawHref = aElement.getAttribute("href") || "";
         if (rawHref && rawHref !== "#") {
+            const href = rawHref.startsWith("#") ? rawHref : aElement.href;
             return {
                 type: "link",
-                href: aElement.href,
-                text: aElement.textContent?.trim() || aElement.href,
+                href,
+                text: aElement.textContent?.trim() || href,
                 element: aElement,
             };
         }

@@ -14,6 +14,7 @@ import Print from './print';
 import ContextMenu from './contextmenu';
 import Table from './table';
 import Toolbar from './toolbar/index';
+import FormulaBar from './formula_bar';
 import ModalValidation from './modal_validation';
 import ModalHyperlink from './modal_hyperlink';
 import SortFilter from './sort_filter';
@@ -28,7 +29,8 @@ const SCROLL_EXPAND_THRESHOLD = 40;
 const HYPERLINK_CLICK_THRESHOLD = 5;
 const VIEW_EXPAND_COOLDOWN_MS = 250;
 const WHEEL_ZOOM_STEP = 0.1;
-const WHEEL_ZOOM_THROTTLE_MS = 120;
+const WHEEL_ZOOM_THROTTLE_MS = 300;
+const WHEEL_SCROLL_THROTTLE_MS = 48;
 
 function tryExpandRows(sheet, data) {
   const now = Date.now();
@@ -108,6 +110,7 @@ let wheelPendingDy = 0;
 let wheelPendingDx = 0;
 let wheelRafId = 0;
 let wheelSheetRef = null;
+let wheelLastFlushAt = 0;
 
 function flushWheelPixelScroll() {
   wheelRafId = 0;
@@ -115,6 +118,14 @@ function flushWheelPixelScroll() {
   if (!sheet) {
     return;
   }
+  const now = Date.now();
+  const elapsed = now - wheelLastFlushAt;
+  if (elapsed < WHEEL_SCROLL_THROTTLE_MS) {
+    wheelRafId = requestAnimationFrame(flushWheelPixelScroll);
+    return;
+  }
+  wheelLastFlushAt = now;
+
   const dy = wheelPendingDy;
   const dx = wheelPendingDx;
   wheelPendingDy = 0;
@@ -225,6 +236,7 @@ function selectorSet(multiple, ri, ci, indexesUpdated = true, moving = false) {
     this.trigger('cell-selected', cell, ri, ci);
   }
   contextMenu.setMode((ri === -1 || ci === -1) ? 'row-col' : 'range');
+  this.formulaBar.update();
   toolbar.reset();
   table.render();
 }
@@ -370,16 +382,24 @@ function selectorMove(multiple, direction) {
 }
 
 // private methods
+function overlayerOffset(sheet, evt) {
+  const overRect = sheet.overlayerEl.box();
+  return {
+    offsetX: evt.clientX - overRect.left,
+    offsetY: evt.clientY - overRect.top,
+  };
+}
+
 function overlayerMousemove(evt) {
   // console.log('x:', evt.offsetX, ', y:', evt.offsetY);
   if (evt.buttons !== 0) return;
   if (evt.target.className === `${cssPrefix}-resizer-hover`) return;
-  const { offsetX, offsetY } = evt;
+  const { offsetX, offsetY } = overlayerOffset(this, evt);
   const {
     rowResizer, colResizer, tableEl, data,
   } = this;
   const { rows, cols } = data;
-  const cRect = data.getCellRectByXY(evt.offsetX, evt.offsetY);
+  const cRect = data.getCellRectByXY(offsetX, offsetY);
   if (offsetX > cols.indexWidth && offsetY > rows.height) {
     rowResizer.hide();
     colResizer.hide();
@@ -695,9 +715,11 @@ function overlayerMousedown(evt) {
   // console.log(':::::overlayer.mousedown:', evt.detail, evt.button, evt.buttons, evt.shiftKey);
   // console.log('evt.target.className:', evt.target.className);
   const {
-    selector, data, table, sortFilter,
+    selector, data, table, sortFilter, sheetImages,
   } = this;
-  const { offsetX, offsetY } = evt;
+  // Cell selection must not keep / show floating image selection.
+  if (sheetImages) sheetImages.clearSelection();
+  const { offsetX, offsetY } = overlayerOffset(this, evt);
   const isAutofillEl = evt.target.className === `${cssPrefix}-selector-corner`;
   const cellRect = data.getCellRectByXY(offsetX, offsetY);
   const {
@@ -921,11 +943,14 @@ function dataSetCellText(text, state = 'finished') {
   }
   if (state === 'finished') {
     table.render();
+    this.formulaBar.update(text);
     const err = data.getValidationError(ri, ci);
     if (err) {
       this.trigger('validation-error', err);
     }
   } else {
+    table.render();
+    this.formulaBar.update(text);
     this.trigger('cell-edited', text, ri, ci);
   }
 }
@@ -988,6 +1013,10 @@ function toolbarChange(type, value) {
   }
   if (type === 'save-as') {
     this.trigger('save-as');
+    return;
+  }
+  if (type === 'edit-in-vscode') {
+    this.trigger('edit-in-vscode');
     return;
   }
   if (type === 'find') {
@@ -1085,7 +1114,8 @@ function sheetInitEvents() {
       // the left mouse button: mousedown → mouseup → click
       // the right mouse button: mousedown → contenxtmenu → mouseup
       if (evt.buttons === 2) {
-        if (this.data.xyInSelectedRect(evt.offsetX, evt.offsetY)) {
+        const { offsetX, offsetY } = overlayerOffset(this, evt);
+        if (this.data.xyInSelectedRect(offsetX, offsetY)) {
           contextMenu.setPosition(evt.offsetX, evt.offsetY);
         } else {
           overlayerMousedown.call(this, evt);
@@ -1093,7 +1123,8 @@ function sheetInitEvents() {
         }
         evt.stopPropagation();
       } else if (evt.detail === 2) {
-        const cellRect = this.data.getCellRectByXY(evt.offsetX, evt.offsetY);
+        const { offsetX, offsetY } = overlayerOffset(this, evt);
+        const cellRect = this.data.getCellRectByXY(offsetX, offsetY);
         const { ri, ci } = cellRect;
         if (ri >= 0 && ci >= 0 && !this.data.canEditCell(ri, ci)) {
           selectorSet.call(this, false, ri, ci);
@@ -1378,8 +1409,14 @@ export default class Sheet {
     const { view, showToolbar, showContextmenu } = data.settings;
     this.el = h('div', `${cssPrefix}-sheet`);
     this.toolbar = new Toolbar(data, view.width, !showToolbar);
+    this.formulaBar = new FormulaBar(
+      data,
+      text => dataSetCellText.call(this, text, 'finished'),
+      text => dataSetCellText.call(this, text, 'input'),
+      (ri, ci) => this.scrollToCell(ri, ci),
+    );
     this.print = new Print(data);
-    targetEl.children(this.toolbar.el, this.el, this.print.el);
+    targetEl.children(this.toolbar.el, this.formulaBar.el, this.el, this.print.el);
     this.data = data;
     // table
     this.tableEl = h('canvas', `${cssPrefix}-table`);
@@ -1458,10 +1495,13 @@ export default class Sheet {
     verticalScrollbarSet.call(this);
     horizontalScrollbarSet.call(this);
     this.toolbar.resetData(data);
+    this.formulaBar.resetData(data);
     this.toolbar.setSaveEnabled(false);
     this.print.resetData(data);
     this.selector.resetData(data);
     this.table.resetData(data);
+    this.sheetImages.setEditable(data.settings.mode !== 'read');
+    this.sheetImages.reset(data);
   }
 
   loadData(data) {

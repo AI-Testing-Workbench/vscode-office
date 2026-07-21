@@ -23,6 +23,7 @@ export default {
     autofilter: 'Filter',
     formula: 'Functions',
     find: 'Find',
+    editInVscode: 'Edit in VS Code',
     save: 'Save',
     saveAs: 'Save As',
     more: 'More',

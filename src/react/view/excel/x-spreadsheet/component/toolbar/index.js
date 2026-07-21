@@ -24,6 +24,7 @@ import Textwrap from './textwrap';
 import More from './more';
 import Save from './save';
 import SaveAs from './saveas';
+import EditInVSCode from './edit_in_vscode';
 import Find from './find';
 import Item from './item';
 
@@ -121,6 +122,7 @@ export default class Toolbar {
       ],
       buildDivider(),
       [
+        this.editInVSCodeEl = new EditInVSCode(),
         this.saveEl = new Save(),
         this.saveAsEl = new SaveAs(),
       ],
@@ -211,6 +213,9 @@ export default class Toolbar {
     this.el.child(this.btns);
     if (data.settings.mode === 'read') {
       this.saveEl.el.hide();
+    }
+    if (!data.settings.showEditInVSCode) {
+      this.editInVSCodeEl.el.hide();
     }
     if (isHide) {
       this.el.hide();

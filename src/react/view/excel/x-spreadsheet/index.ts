@@ -32,6 +32,7 @@ export interface Options {
     showGrid?: boolean;
     showContextmenu?: boolean;
     showBottomBar?: boolean;
+    showEditInVSCode?: boolean;
     extendToolbar?: {
         left?: ExtendToolbarOption[];
         right?: ExtendToolbarOption[];
