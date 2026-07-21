@@ -20,6 +20,7 @@ export default {
     textwrap: 'Textumbruch',
     freeze: 'Zelle sperren',
     find: 'Suchen',
+    editInVscode: 'In VS Code bearbeiten',
     save: 'Speichern',
     saveAs: 'Speichern unter',
     formula: 'Funktionen',

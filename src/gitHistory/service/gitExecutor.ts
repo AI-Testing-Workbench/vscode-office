@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import iconv from 'iconv-lite';
 import type { GitExecutable } from '../types/git';
 
 export const UNABLE_TO_FIND_GIT_MSG =
@@ -22,10 +23,47 @@ function resolveSpawnOutput(
     });
 }
 
+/**
+ * Decode a Buffer from git output, with fallback for non-UTF-8 encodings
+ * common on Windows (e.g. GBK/CP936 on Chinese systems).
+ *
+ * Git's `-c i18n.logOutputEncoding=utf-8` should make git output UTF-8, but
+ * if a commit was stored without an explicit encoding header git assumes
+ * UTF-8 and does no conversion, leaving the raw bytes in the system locale
+ * encoding (e.g. GBK). This function detects that case and re-decodes.
+ */
+function decodeGitOutput(buffer: Buffer): string {
+    if (buffer.length === 0) return ''
+
+    // Try strict UTF-8 decoding first — this is the fast path for valid UTF-8.
+    try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+    } catch {
+        // Buffer is not valid UTF-8; it may be in the system locale encoding.
+    }
+
+    // Try GBK (CP936) — common on Chinese Windows (zh-CN).
+    // Also try BIG5 (CP950, Traditional Chinese) and Shift-JIS (CP932, Japanese).
+    for (const enc of ['GBK', 'BIG5', 'Shift_JIS']) {
+        try {
+            const decoded = iconv.decode(buffer, enc)
+            // iconv decode never fails silently, but guard against empty result
+            if (decoded && decoded.length > 0) {
+                return decoded
+            }
+        } catch {
+            continue
+        }
+    }
+
+    // Last resort: text decode with replacement (never throws, replaces bad bytes)
+    return buffer.toString('utf-8')
+}
+
 function getErrorMessage(error: Error | null, stdout: Buffer, stderr: Buffer): string {
     if (error) return error.message;
-    const stderrLines = stderr.toString().split(EOL_REGEX).map((line) => line.trim()).filter(Boolean);
-    const stdoutLines = stdout.toString().split(EOL_REGEX).map((line) => line.trim()).filter(Boolean);
+    const stderrLines = decodeGitOutput(stderr).split(EOL_REGEX).map((line) => line.trim()).filter(Boolean);
+    const stdoutLines = decodeGitOutput(stdout).split(EOL_REGEX).map((line) => line.trim()).filter(Boolean);
     const lines = [...stderrLines, ...stdoutLines];
     const priorityLine = lines.find((line) =>
         /fatal|error|conflict|failed|aborting|cannot|could not|already exists/i.test(line)
@@ -37,7 +75,7 @@ function getErrorMessage(error: Error | null, stdout: Buffer, stderr: Buffer): s
 }
 
 function getWarningMessage(stderr: Buffer): string | null {
-    const stderrLines = stderr.toString().split(EOL_REGEX).map((line) => line.trim()).filter(Boolean);
+    const stderrLines = decodeGitOutput(stderr).split(EOL_REGEX).map((line) => line.trim()).filter(Boolean);
     if (stderrLines.length === 0) {
         return null;
     }
@@ -61,10 +99,11 @@ export class GitExecutor {
 
     spawnWithWarning<T>(args: string[], repo: string, resolveValue: (stdout: string) => T): Promise<GitSpawnResult<T>> {
         return new Promise((resolve, reject) => {
-            // Force UTF-8 output encoding for all git commands to ensure non-ASCII
-            // characters (e.g. Chinese, Japanese, Korean) are not garbled on Windows
-            // systems where the locale encoding may differ from UTF-8.
-            const child = spawn(this.gitExecutable.path, ['-c', 'i18n.logOutputEncoding=utf-8', ...args], {
+            // Force UTF-8 output encoding and disable path quoting for all git
+            // commands to ensure non-ASCII characters (e.g. Chinese, Japanese,
+            // Korean) are not garbled on Windows systems where the locale encoding
+            // may differ from UTF-8, or where core.quotepath escapes file paths.
+            const child = spawn(this.gitExecutable.path, ['-c', 'i18n.logOutputEncoding=utf-8', '-c', 'core.quotepath=false', ...args], {
                 cwd: repo,
                 env: process.env,
             });
@@ -76,7 +115,7 @@ export class GitExecutor {
                 }
                 try {
                     resolve({
-                        value: resolveValue(stdout.toString()),
+                        value: resolveValue(decodeGitOutput(stdout)),
                         warning: getWarningMessage(stderr),
                     });
                 } catch (e) {

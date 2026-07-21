@@ -248,6 +248,12 @@ export default class Selector {
     this.data = data;
     this.range = data.selector.range;
     this.resetAreaOffset();
+    // Clipboard marching-ants border is per-sheet; sync visibility when switching sheets.
+    if (data.clipboard.isClear()) {
+      this.hideClipboard();
+    } else {
+      this.showClipboard();
+    }
   }
 
   hide() {

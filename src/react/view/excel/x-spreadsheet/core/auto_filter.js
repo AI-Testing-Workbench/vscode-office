@@ -62,14 +62,14 @@ export default class AutoFilter {
     this.sort = null;
   }
 
-  setData({ ref, filters, sort }) {
-    if (ref != null) {
-      this.ref = ref;
-      this.filters = filters.map(it => new Filter(it.ci, it.operator, it.value));
-      if (sort) {
-        this.sort = new Sort(sort.ci, sort.order);
-      }
+  setData(data) {
+    if (!data || data.ref == null) {
+      this.clear();
+      return;
     }
+    this.ref = data.ref;
+    this.filters = (data.filters || []).map(it => new Filter(it.ci, it.operator, it.value));
+    this.sort = data.sort ? new Sort(data.sort.ci, data.sort.order) : null;
   }
 
   getData() {
