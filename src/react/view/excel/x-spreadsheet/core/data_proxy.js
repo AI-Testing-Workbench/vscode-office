@@ -1314,7 +1314,7 @@ export default class DataProxy {
   scrollx(x, cb) {
     const { scroll, cols } = this;
     const contentWidth = cols.totalWidth();
-    const maxX = Math.max(0, contentWidth - this.viewWidth());
+    const maxX = Math.max(0, contentWidth - this.contentViewWidth());
     const x1 = Math.max(0, Math.min(x, maxX));
     if (scroll.x !== x1) {
       scroll.x = x1;
@@ -1327,7 +1327,7 @@ export default class DataProxy {
     const { scroll, rows } = this;
     const erth = this.exceptRowTotalHeight(0, -1);
     const contentHeight = rows.totalHeight() - erth;
-    const maxY = Math.max(0, contentHeight - this.viewHeight());
+    const maxY = Math.max(0, contentHeight - this.contentViewHeight());
     const y1 = Math.max(0, Math.min(y, maxY));
     if (scroll.y !== y1) {
       scroll.y = y1;
@@ -1513,6 +1513,14 @@ export default class DataProxy {
     return this.settings.view.width();
   }
 
+  contentViewWidth() {
+    return this.viewWidth() - this.cols.indexWidth;
+  }
+
+  contentViewHeight() {
+    return this.viewHeight() - this.rows.height;
+  }
+
   freezeViewRange() {
     const [ri, ci] = this.freeze;
     return new CellRange(0, 0, ri - 1, ci - 1, this.freezeTotalWidth(), this.freezeTotalHeight());
@@ -1550,8 +1558,8 @@ export default class DataProxy {
 
     const partialRowOffset = scroll.y - rows.sumHeight(0, ri, exceptRowSet);
     const partialColOffset = scroll.x - cols.sumWidth(0, ci);
-    const viewH = this.viewHeight() + Math.max(0, partialRowOffset);
-    const viewW = this.viewWidth() + Math.max(0, partialColOffset);
+    const viewH = this.contentViewHeight() + Math.max(0, partialRowOffset);
+    const viewW = this.contentViewWidth() + Math.max(0, partialColOffset);
 
     let [x, y] = [0, 0];
     let [eri, eci] = [rows.len, cols.len];

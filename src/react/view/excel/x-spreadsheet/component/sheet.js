@@ -382,16 +382,24 @@ function selectorMove(multiple, direction) {
 }
 
 // private methods
+function overlayerOffset(sheet, evt) {
+  const overRect = sheet.overlayerEl.box();
+  return {
+    offsetX: evt.clientX - overRect.left,
+    offsetY: evt.clientY - overRect.top,
+  };
+}
+
 function overlayerMousemove(evt) {
   // console.log('x:', evt.offsetX, ', y:', evt.offsetY);
   if (evt.buttons !== 0) return;
   if (evt.target.className === `${cssPrefix}-resizer-hover`) return;
-  const { offsetX, offsetY } = evt;
+  const { offsetX, offsetY } = overlayerOffset(this, evt);
   const {
     rowResizer, colResizer, tableEl, data,
   } = this;
   const { rows, cols } = data;
-  const cRect = data.getCellRectByXY(evt.offsetX, evt.offsetY);
+  const cRect = data.getCellRectByXY(offsetX, offsetY);
   if (offsetX > cols.indexWidth && offsetY > rows.height) {
     rowResizer.hide();
     colResizer.hide();
@@ -711,7 +719,7 @@ function overlayerMousedown(evt) {
   } = this;
   // Cell selection must not keep / show floating image selection.
   if (sheetImages) sheetImages.clearSelection();
-  const { offsetX, offsetY } = evt;
+  const { offsetX, offsetY } = overlayerOffset(this, evt);
   const isAutofillEl = evt.target.className === `${cssPrefix}-selector-corner`;
   const cellRect = data.getCellRectByXY(offsetX, offsetY);
   const {
@@ -1106,7 +1114,8 @@ function sheetInitEvents() {
       // the left mouse button: mousedown → mouseup → click
       // the right mouse button: mousedown → contenxtmenu → mouseup
       if (evt.buttons === 2) {
-        if (this.data.xyInSelectedRect(evt.offsetX, evt.offsetY)) {
+        const { offsetX, offsetY } = overlayerOffset(this, evt);
+        if (this.data.xyInSelectedRect(offsetX, offsetY)) {
           contextMenu.setPosition(evt.offsetX, evt.offsetY);
         } else {
           overlayerMousedown.call(this, evt);
@@ -1114,7 +1123,8 @@ function sheetInitEvents() {
         }
         evt.stopPropagation();
       } else if (evt.detail === 2) {
-        const cellRect = this.data.getCellRectByXY(evt.offsetX, evt.offsetY);
+        const { offsetX, offsetY } = overlayerOffset(this, evt);
+        const cellRect = this.data.getCellRectByXY(offsetX, offsetY);
         const { ri, ci } = cellRect;
         if (ri >= 0 && ci >= 0 && !this.data.canEditCell(ri, ci)) {
           selectorSet.call(this, false, ri, ci);
