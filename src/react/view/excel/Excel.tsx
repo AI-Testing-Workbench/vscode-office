@@ -40,7 +40,7 @@ function loadExcelColorMode(): ExcelColorMode {
             return 'light';
         }
     } catch { }
-    return 'adaptive';
+    return 'light';
 }
 
 function saveExcelColorMode(mode: ExcelColorMode) {
@@ -95,6 +95,10 @@ function restoreViewState(spreadSheet: Spreadsheet, saved: ExcelViewState) {
     spreadSheet.scrollToCell(ri, ci, sheetIndex);
 }
 
+function isCsvLikeExt(ext: string): boolean {
+    return /^(csv|tsv)$/i.test(ext.replace(/^\./, ''));
+}
+
 function ExcelViewer() {
     const { message, modal } = App.useApp();
     const [loading, setLoading] = useState(true)
@@ -127,12 +131,20 @@ function ExcelViewer() {
         if (!adaptiveColorMode) {
             return;
         }
-        return observeVscodeThemeChange(() => setVscodeDark(isVscodeEditorDark()));
+        return observeVscodeThemeChange(() => {
+            setVscodeDark(isVscodeEditorDark());
+            requestAnimationFrame(() => spreadSheetRef.current?.reRender());
+        });
     }, [adaptiveColorMode]);
 
     useEffect(() => {
+        document.body.classList.toggle('office-adaptive', adaptiveColorMode)
         document.body.classList.toggle('office-dark', themedDark)
-    }, [themedDark])
+        return () => {
+            document.body.classList.remove('office-adaptive')
+            document.body.classList.remove('office-dark')
+        }
+    }, [adaptiveColorMode, themedDark])
 
     const toggleColorMode = () => {
         setColorMode(prev => {
@@ -147,7 +159,18 @@ function ExcelViewer() {
 
     useEffect(() => {
         spreadSheetRef.current?.reRender()
-    }, [themedDark])
+    }, [adaptiveColorMode, themedDark])
+
+    const handleAutoFitColumns = useCallback(() => {
+        const spreadSheet = spreadSheetRef.current;
+        if (!spreadSheet) return;
+        spreadSheet.autoFitColumns();
+        if (!readOnlyRef.current) {
+            spreadSheet.setSaveEnabled(true);
+            handler.emit('change');
+        }
+        message.success({ duration: 1.5, content: t('viewer.autoFitDone'), className: 'excel-save-success-message' });
+    }, [message]);
 
     const handleSaveAs = useCallback(() => {
         setSaveAsVisible(true);
@@ -279,11 +302,16 @@ function ExcelViewer() {
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyH') {
                 e.preventDefault();
                 setFindPanel(readOnlyRef.current ? 'find' : 'replace');
+                return;
+            }
+            if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === 'Digit0') {
+                e.preventDefault();
+                handleAutoFitColumns();
             }
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [handleSave, handleSaveAs]);
+    }, [handleAutoFitColumns, handleSave, handleSaveAs]);
 
     useEffect(() => {
         const container = document.getElementById('container');
@@ -303,6 +331,23 @@ function ExcelViewer() {
             const spreadSheet = new Spreadsheet(container, {
                 mode: fileReadOnly ? 'read' : 'edit',
                 showToolbar: true,
+                extendToolbar: {
+                    right: [
+                        {
+                            tip: `${t('viewer.autoFitColumns')} (${navigator.platform.includes('Mac') ? 'Cmd+Alt+0' : 'Ctrl+Alt+0'})`,
+                            el: (() => {
+                                const button = document.createElement('span');
+                                button.textContent = 'AF';
+                                button.className = 'excel-autofit-badge';
+                                return button;
+                            })(),
+                            onClick: () => {
+                                handleAutoFitColumns();
+                            },
+                        },
+                    ],
+                },
+                showEditInVSCode: isCsvLikeExt(payload.ext ?? ''),
                 row: { len: viewRowLen, height: 30 },
                 col: { len: viewColLen },
                 view: { height: () => window.innerHeight - 2 },
@@ -315,6 +360,7 @@ function ExcelViewer() {
                 spreadSheet.on('save', () => void handleSave());
             }
             spreadSheet.on('save-as', () => { void handleSaveAs(); });
+            spreadSheet.on('edit-in-vscode', () => { handler.emit('editInVSCode', true); });
             spreadSheet.on('find', () => {
                 if (findPanelRef.current) {
                     if (findPanelRef.current !== 'find') {

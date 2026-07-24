@@ -1,5 +1,28 @@
 # Change log
 
+# 4.1.6 2026-7-20
+
+Markdown Editor:
+
+- Focus the find input after clicking the find button.
+- Fix anchor and footnote jump failure in documents.
+
+Excel:
+
+- Add formula bar.
+- Improve VS Code theme compatibility.
+- Add an Edit in VS Code action to the CSV editor toolbar.
+- Add filter changes to history and increase zoom debounce delay.
+- Fix:
+  - Fix inability to save edited empty CSV files.
+  - Sync clipboard highlight when switching sheets.
+  - Prevent image selection when selecting a range.
+  - Prevent images from appearing across all sheets.
+
+Diff:
+
+- Skip CSV and DOCX files in diff view.
+
 # 4.1.5 2026-7-8
 
 Fix:
@@ -16,6 +39,7 @@ Git History:
 Markdown Editor:
 
 New:
+
 - Add Shift+Tab support.
 - Add typewriter mode support.
 - Add new line button for quick row insertion.

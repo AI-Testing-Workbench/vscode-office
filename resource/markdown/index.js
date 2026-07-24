@@ -40,6 +40,14 @@ handler.on("open", async (md) => {
       if (payload.action !== "dblclick" && !(payload.action === "click" && isCompose)) {
         return;
       }
+      if (payload.type === "footnote-ref") {
+        editor.scrollToBlock(`footnote:${payload.href}`);
+        return;
+      }
+      if (payload.href?.startsWith("#")) {
+        editor.scrollToBlock(payload.href);
+        return;
+      }
       let uri = payload.href;
       if (payload.type === "wikilink" || payload.type === "wikilink-embed") {
         const hashIndex = uri.indexOf("#");
@@ -142,6 +150,9 @@ handler.on("open", async (md) => {
         }
         editor.setValue(content);
         editor.markSaved();
+      })
+      handler.on("insertImageMarkdown", (markdown) => {
+        editor.insertMarkdown(markdown);
       })
       handler.on("gotoBlock", (fragment) => {
         if (fragment) {

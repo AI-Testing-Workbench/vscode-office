@@ -20,6 +20,7 @@ export default {
     textwrap: 'Terugloop',
     freeze: 'Cel bevriezen',
     find: 'Zoeken',
+    editInVscode: 'Bewerken in VS Code',
     save: 'Opslaan',
     saveAs: 'Opslaan als',
     formula: 'Functies',

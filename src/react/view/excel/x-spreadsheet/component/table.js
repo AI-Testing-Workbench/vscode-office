@@ -102,9 +102,9 @@ export function renderCell(draw, data, rindex, cindex, yoffset = 0) {
     } else {
       cellText = cell.text || '';
     }
-    if (style.format) {
-      // console.log(data.formatm, '>>', cell.format);
-      cellText = formatm[style.format].render(cellText);
+    const formatter = style.format ? formatm[style.format] : undefined;
+    if (formatter) {
+      cellText = formatter.render(cellText);
     }
     const font = Object.assign({}, style.font);
     if (!font.name) {
@@ -201,16 +201,24 @@ function renderSelectedHeaderCell(x, y, w, h) {
 // ty: moving distance on y-axis
 function renderFixedHeaders(type, viewRange, w, h, tx, ty) {
   const { draw, data } = this;
-  const sumHeight = viewRange.h; // rows.sumHeight(viewRange.sri, viewRange.eri + 1);
-  const sumWidth = viewRange.w; // cols.sumWidth(viewRange.sci, viewRange.eci + 1);
-  const nty = ty + h;
-  const ntx = tx + w;
+  const { rows, cols, exceptRowSet } = data;
+  const {
+    sri: viewSri, sci: viewSci, eri: viewEri, eci: viewEci,
+  } = viewRange;
+  const sumHeight = rows.sumHeight(viewSri, viewEri + 1, exceptRowSet);
+  const sumWidth = cols.sumWidth(viewSci, viewEci + 1);
+  const rowOrigin = rows.sumHeight(0, viewSri, exceptRowSet);
+  const colOrigin = cols.sumWidth(0, viewSci);
 
   draw.save();
   // draw rect background
   draw.attr(tableFixedHeaderCleanStyle());
-  if (type === 'all' || type === 'left') draw.fillRect(0, nty, w, sumHeight);
-  if (type === 'all' || type === 'top') draw.fillRect(ntx, 0, sumWidth, h);
+  if (type === 'all' || type === 'left') {
+    draw.fillRect(0, h + ty + rowOrigin, w, sumHeight);
+  }
+  if (type === 'all' || type === 'top') {
+    draw.fillRect(w + tx + colOrigin, 0, sumWidth, h);
+  }
 
   const {
     sri, sci, eri, eci,
@@ -221,8 +229,8 @@ function renderFixedHeaders(type, viewRange, w, h, tx, ty) {
   draw.attr(tableFixedHeaderStyle.call(this));
   // y-header-text
   if (type === 'all' || type === 'left') {
-    data.rowEach(viewRange.sri, viewRange.eri, (i, y1, rowHeight) => {
-      const y = nty + y1;
+    data.rowEach(viewSri, viewEri, (i, y1, rowHeight) => {
+      const y = h + ty + rowOrigin + y1;
       const ii = i;
       draw.line([0, y], [w, y]);
       if (sri <= ii && ii < eri + 1) {
@@ -236,13 +244,13 @@ function renderFixedHeaders(type, viewRange, w, h, tx, ty) {
         draw.restore();
       }
     });
-    draw.line([0, sumHeight + nty], [w, sumHeight + nty]);
-    draw.line([w, nty], [w, sumHeight + nty]);
+    draw.line([0, h + ty + rowOrigin + sumHeight], [w, h + ty + rowOrigin + sumHeight]);
+    draw.line([w, h + ty + rowOrigin], [w, h + ty + rowOrigin + sumHeight]);
   }
   // x-header-text
   if (type === 'all' || type === 'top') {
-    data.colEach(viewRange.sci, viewRange.eci, (i, x1, colWidth) => {
-      const x = ntx + x1;
+    data.colEach(viewSci, viewEci, (i, x1, colWidth) => {
+      const x = w + tx + colOrigin + x1;
       const ii = i;
       draw.line([x, 0], [x, h]);
       if (sci <= ii && ii < eci + 1) {
@@ -256,8 +264,8 @@ function renderFixedHeaders(type, viewRange, w, h, tx, ty) {
         draw.restore();
       }
     });
-    draw.line([sumWidth + ntx, 0], [sumWidth + ntx, h]);
-    draw.line([0, h], [sumWidth + ntx, h]);
+    draw.line([w + tx + colOrigin + sumWidth, 0], [w + tx + colOrigin + sumWidth, h]);
+    draw.line([0, h], [w + tx + colOrigin + sumWidth, h]);
   }
   draw.restore();
 }
@@ -272,14 +280,15 @@ function renderFixedLeftTopCell(fw, fh) {
 }
 
 function renderContentGrid({
-  sri, sci, eri, eci, w, h,
+  sri, sci, eri, eci,
 }, fw, fh, tx, ty) {
   const { draw, data } = this;
-  const { settings } = data;
+  const { settings, rows, cols, exceptRowSet } = data;
 
   draw.save();
   draw.attr(tableGridStyle())
-    .translate(fw + tx, fh + ty);
+    .translate(fw, fh)
+    .translate(tx, ty);
   // const sumWidth = cols.sumWidth(sci, eci + 1);
   // const sumHeight = rows.sumHeight(sri, eri + 1);
   // console.log('sumWidth:', sumWidth);
@@ -288,15 +297,22 @@ function renderContentGrid({
     draw.restore();
     return;
   }
+  // Use absolute sheet coordinates so grid stays aligned with cells under pixel scroll.
+  const rowOrigin = rows.sumHeight(0, sri, exceptRowSet);
+  const colOrigin = cols.sumWidth(0, sci);
+  const gridWidth = cols.sumWidth(sci, eci + 1);
+  const gridHeight = rows.sumHeight(sri, eri + 1, exceptRowSet);
   // console.log('rowStart:', rowStart, ', rowLen:', rowLen);
   data.rowEach(sri, eri, (i, y, ch) => {
+    const ay = rowOrigin + y;
     // console.log('y:', y);
-    if (i !== sri) draw.line([0, y], [w, y]);
-    if (i === eri) draw.line([0, y + ch], [w, y + ch]);
+    if (i !== sri) draw.line([colOrigin, ay], [colOrigin + gridWidth, ay]);
+    if (i === eri) draw.line([colOrigin, ay + ch], [colOrigin + gridWidth, ay + ch]);
   });
   data.colEach(sci, eci, (i, x, cw) => {
-    if (i !== sci) draw.line([x, 0], [x, h]);
-    if (i === eci) draw.line([x + cw, 0], [x + cw, h]);
+    const ax = colOrigin + x;
+    if (i !== sci) draw.line([ax, rowOrigin], [ax, rowOrigin + gridHeight]);
+    if (i === eci) draw.line([ax + cw, rowOrigin], [ax + cw, rowOrigin + gridHeight]);
   });
   draw.restore();
 }
@@ -343,10 +359,12 @@ class Table {
     const tx = data.freezeTotalWidth();
     const ty = data.freezeTotalHeight();
     const { x, y } = data.scroll;
+    // Keep grid/headers on the same translate as cell content so pixel-scroll
+    // partial offsets stay aligned on both axes.
     // 1
-    renderContentGrid.call(this, viewRange, fw, fh, tx, ty);
+    renderContentGrid.call(this, viewRange, fw, fh, -x, -y);
     renderContent.call(this, viewRange, fw, fh, -x, -y);
-    renderFixedHeaders.call(this, 'all', viewRange, fw, fh, tx, ty);
+    renderFixedHeaders.call(this, 'all', viewRange, fw, fh, -x, -y);
     renderFixedLeftTopCell.call(this, fw, fh);
     const [fri, fci] = data.freeze;
     if (fri > 0 || fci > 0) {
@@ -356,9 +374,9 @@ class Table {
         vr.sri = 0;
         vr.eri = fri - 1;
         vr.h = ty;
-        renderContentGrid.call(this, vr, fw, fh, tx, 0);
+        renderContentGrid.call(this, vr, fw, fh, -x, 0);
         renderContent.call(this, vr, fw, fh, -x, 0);
-        renderFixedHeaders.call(this, 'top', vr, fw, fh, tx, 0);
+        renderFixedHeaders.call(this, 'top', vr, fw, fh, -x, 0);
       }
       // 3
       if (fci > 0) {
@@ -366,8 +384,8 @@ class Table {
         vr.sci = 0;
         vr.eci = fci - 1;
         vr.w = tx;
-        renderContentGrid.call(this, vr, fw, fh, 0, ty);
-        renderFixedHeaders.call(this, 'left', vr, fw, fh, 0, ty);
+        renderContentGrid.call(this, vr, fw, fh, 0, -y);
+        renderFixedHeaders.call(this, 'left', vr, fw, fh, 0, -y);
         renderContent.call(this, vr, fw, fh, 0, -y);
       }
       // 4

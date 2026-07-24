@@ -57,7 +57,7 @@ Shortcuts: Based on [shortcut.md](shortcut.md), plus:
 - HTML: live preview while editing; press `Ctrl+Shift+V` to open the live view
 - YAML: document outline and anchor navigation (Go to Definition for alias references)
 - Icon theme: includes a subset of [Material Icon Theme](https://github.com/PKief/vscode-material-icon-theme) icons, plus **Office Material Icon Theme** and **One Dark Modern** color themes
-- Excel: preview and save `.xlsx`, `.xls`, `.xlsm`, `.csv`, and `.ods` files (saving `.xlsx` may lose formatting; `.csv` does not support GBK-encoded Chinese)
+- Excel: preview and save `.xlsx`, `.xls`, `.xlsm`, `.csv`, and `.ods` files
 - HTTP: send requests from `.http` and `.rest` files (integrated from [REST Client](https://github.com/Huachao/vscode-restclient) with fixes for local request issues); press `Ctrl+Enter` / `⌘ Enter` to send
 - Java: decompile and view `.class` files
 

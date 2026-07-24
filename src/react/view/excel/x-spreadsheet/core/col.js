@@ -41,7 +41,7 @@ class Cols {
   }
 
   setData(d) {
-    if (d.len) {
+    if (d.len != null) {
       this.len = d.len;
       delete d.len;
     }

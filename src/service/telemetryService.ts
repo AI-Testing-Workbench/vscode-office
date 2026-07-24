@@ -41,7 +41,9 @@ export class TelemetryService {
     }
 
     private getCommonProperties(): Record<string, string> {
+        const theme = workspace.getConfiguration('workbench').get<string>('colorTheme');
         return {
+            theme,
             app_name: env.appName,
             language: env.language,
         };

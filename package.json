@@ -2,7 +2,7 @@
 	"name": "vscode-office",
 	"displayName": "Office Viewer",
 	"description": "View word, excel, powerpoint files and using WYSIWYG editor for markdown.",
-	"version": "4.1.5",
+	"version": "4.1.6",
 	"publisher": "cweijan",
 	"icon": "image/logo.png",
 	"engines": {
@@ -373,7 +373,13 @@
 						"filenamePattern": "*.xlsm"
 					},
 					{
-						"filenamePattern": "*.csv"
+						"filenamePattern": "file:/**/*.csv"
+					},
+					{
+						"filenamePattern": "vscode-vfs:/**/*.csv"
+					},
+					{
+						"filenamePattern": "vscode-remote:/**/*.csv"
 					},
 					{
 						"filenamePattern": "*.tsv"
@@ -382,7 +388,13 @@
 						"filenamePattern": "*.ods"
 					},
 					{
-						"filenamePattern": "*.docx"
+						"filenamePattern": "file:/**/*.docx"
+					},
+					{
+						"filenamePattern": "vscode-vfs:/**/*.docx"
+					},
+					{
+						"filenamePattern": "vscode-remote:/**/*.docx"
 					},
 					{
 						"filenamePattern": "*.dotx"
